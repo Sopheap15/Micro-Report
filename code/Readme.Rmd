@@ -1,0 +1,127 @@
+---
+title: "<center>ReadMe</center>"
+author: "<center>Oeng Sopheap</center>"
+date: "<center>09/08/2021</center>"
+output:
+  rmarkdown::html_document:
+    theme: cerulean
+    #code_folding: hide
+---
+
+```{r setup, message=TRUE, warning=TRUE, include=FALSE, paged.print=TRUE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE)
+```
+
+## 1. Introduction  
+  Generating accurate and comprehensive microbiology report are time consuming and intensive effort needed. However, microbiology report is crucial and useful for microbiologist, laboratory manager, clinicians, hospital management and other relevant stakeholders for quality improvement. 
+  
+  To assist microbiologist where is using [CamLIS](www.camlis.net), we ([DMDP](www.dmdp.org) and microb labs) developed Rmarkdown language and R script in R programming language. Microbiologist only need to drop excel file generated from CamLIS and press button Run.   
+
+## 2. Objectives  
+  This document will guide microbiologist to generate report in R programming.
+  
+## 3. Install R programming  
+  R is a free programming language and support for Window, Mac and Linux operating system. Recently, R releases a new version R 4.1.0 to improve the performance. Installing R programming and code editor:    
+  a. Install R commander: [www.r-project.org](https://cran.r-project.org)  
+  b. Install R Studio (code editor): [R studio free desktop](https://www.rstudio.com/products/rstudio/download/). Now you should able to open R studio to work.     
+  c. In R studio, install packages that you will need  
+```{r, eval=FALSE}
+install.packages("tidyverse")
+install.packages("here")
+install.packages("janitor")
+install.packages("kableExtra")
+install.packages("AMR")
+install.packages("readxl")
+```
+  
+Note: install R programming and packages only apply for a new computer without R programming and/or packages  
+  
+## 4. Microbiology Report folder   
+  Open folder "Microbiology Report":  
+  
+  a. File:  
+  - Microbiology Report.Rprof- project file
+  - Run.R- run this file to generate report  
+  - Run.html- capture message and output after running click on Run.R   
+  - Readme.html- instruction for running R programming 
+  - Readme.Rmd- generate job aid of readme.html
+  
+  b. Folder:   
+  - Code- store .Rmd and/or .R files  
+  - Images- images to produce report  
+  - Outputs- output files (Microbiology_Report_'Date'.html) after running script  
+  - Data- exel file extracted from CamLIS and dictionary.
+     - Excel file exactly name as "Bacteriology Report.xlsx" extracted from CamLIS and clean columns name.   
+     - Dictionary file exactly name as "Dictionary.xlsx"- choose hospital to be analysed, start date, end date, number of the top rows to skip and person generating report.  
+    
+  c. Overview of Bacteriology Report.xlsx
+  
+```{r library, message=FALSE, warning=FALSE, echo=FALSE}
+library(here)
+library(tidyverse,warn.conflicts = F)
+library(janitor)
+library(kableExtra)
+library(AMR)
+library(readxl)
+
+```
+
+```{r bacteriology data.xlsx, message=FALSE,warning=FALSE}
+# Read and explor data
+readxl::read_excel(here("data","Bacteriology Report.xlsx"), skip = 3) %>% 
+  clean_names() %>% 
+  rename("Comment" = x51) %>% glimpse()
+```
+
+  d. Overview dictionary.xlsx
+```{r data dictionary.xlsx, message=FALSE, warning=FALSE}
+readxl::read_excel(here("data","Dictionary.xlsx")) %>% 
+  clean_names() %>% glimpse()
+```
+
+## 5. Analysis 
+  - Folder "data": 
+    1. Drop your data from CamLIS as exact name "Bacteriology Report.xlsx"
+    2. Open "Dictionary.xlsx" and choose hospital name, start date, end date and person producing report. For end date, the default is 31-12-2021. It will automatic analyse based on the last date of column collection date in data. 
+  - Main folder "Microbiology Report":
+  2. Double click on "Microbiology Report.Rprof". R studio should be opened 
+  3. On the menu bar click on file ---> open Run.R  
+   
+```{r Loading file, eval=FALSE}
+# Load Library
+library(here)
+library(tidyverse,warn.conflicts = F)
+library(janitor)
+library(kableExtra)
+library(AMR)
+library(readxl)
+
+# Load data
+source("code/Load_data.R",knitr::knit_global())
+
+# Render report
+rmarkdown::render("code/Microbiology Report V1 06.08.21.Rmd",
+                     output_file = paste0("Outputs/Microbiology_Report_",{Sys.Date()},".html"),
+                   quiet = T)
+```
+  4. Run  
+  - Shortcut  
+      - MAC computer: Command + A + Enter
+      - Window/Linux: Ctr + A + Enter  
+  - Manual
+      - Select all (Command or Ctr + A)
+      - Click on Run on the above and middle coding window.   
+  - Create a Shortcut button on your desktop (optional)
+      - Open text editor 
+      - Pass this code: Rscript -e 'rmarkdown::render("path/Run.R")'
+      - Save file as txt on desktop  
+  Note: you can see complete Run in console say 100%, or see the symbol ">" or the symbol "STOP" disappear. 
+  5. Output  
+  - Folder "Outputs": Open Microbiology_Report_'Date'.html with chrome or other web browsers
+  
+## 6. Contact  
+Contact DMDP laboratory mentor for any questions:   
+  Email: oeng.sopheap@dmdp.org  
+  Tele : 012 40 63 88
+  
+
