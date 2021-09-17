@@ -73,19 +73,6 @@ Antibiotic Susceptibility Testing follows Clinical and Laboratory Standards Inst
 Patient information and laboratory data are registered in the Cambodian laboratory information system [(CamLIS)](http://camlis.net/en/login). Every month microbiologists analyse data and communicate findings with local hospital healthcare professionals. Raw data are extracted from CamLIS as an Excel file and stored in a folder "Microbiology Report/data". Data analysis was conducted by using R Markdown with pre-writing plain texts and [R programming language](https://cran.r-project.org) version R 4.1.0. Packages tidyverse 1.2.1, AMR 1.7.1, janitor 2.1.0, kableExtra 1.3.4 were used. The report from R Markdown is generated in HTML format which can be opened with any web browser in smartphone or computer. e.g Google Chrome, Safari etc.
 
 ## 2. Patient demographic
-
-```{r deduplicate_pid}
-dedup_by_pid <- data %>% 
-  arrange(collection_date) %>% 
-  distinct(patient_id,.keep_all = T) 
-```
-
-```{r deduplicate_pid,lab_id_sampletype}
-dedup_by_id_stype <- data %>% 
-  arrange(collection_date) %>% 
-  distinct(patient_id, lab_id,sample,.keep_all = T)
-```
-
 Assuming a patient receives care in a hospital that has only one patient identification number. We removed duplicates to find the actual number of patient requests. Thus, we have: **`r dedup_by_pid %>% count() %>% mutate_if(is.numeric,format,big.mark=",")`** patient(s).
 
 ### 2.1. Gender
@@ -143,18 +130,19 @@ ymax <- sample_by_month %>%
 
 # plot bar chart
 sample_by_month %>% 
-  ggplot(aes(fct_infreq(sample),fill = sample)) + 
-  geom_bar(stat = "count") +
+  group_by(collection_date_in_month) %>% 
+  count(sample) %>%
+  ggplot(aes(reorder(sample, n), n, fill = sample)) + 
+  geom_bar(stat = "identity", show.legend = F) +
+  geom_text(aes(label = n), size = 2.4, hjust = -0.1) +
   labs(x = "", y = "") +
   coord_flip() + 
-  facet_wrap(~collection_date_in_month,ncol = 3) +
+  facet_wrap(~collection_date_in_month, ncol = 3) +
   theme_bw() +
-  theme(legend.position = "NULL",axis.text = element_text(color = "black"),
+  theme(axis.text = element_text(color = "black"),
         axis.title = element_text(size = 10),
-        panel.grid.major = element_blank()) +
-  geom_text(stat = 'count', aes(label = ..count..), size = 2.4, hjust = -0.1) +
+        panel.grid.major = element_blank())  +
   scale_y_continuous(limits = c(0,ymax$n + 25),expand = c(0.01, 0.1))
-   
   
 rm(ymax)
 rm(sample_by_month)
@@ -162,53 +150,65 @@ rm(sample_by_month)
 
 For further insight, we stratified sample by wards
 
-```{r microbiology sample by ward, fig.width=8,fig.height=13}
+```{r microbiology sample by ward, fig.width=8, fig.height=13}
 
 # find maximum for y axis
 ymax <- dedup_by_id_stype %>% 
-  group_by(sample,sample_source) %>% 
+  group_by(sample, sample_source) %>% 
   summarise(n = n(),.groups = 'drop') %>%
   top_n(n = 1)
 
 dedup_by_id_stype %>% 
-  #select(sample,sample_source) %>% 
-  ggplot(aes(fct_infreq(sample),fill = sample)) +
-  geom_bar() + 
+  select(sample, sample_source) %>% 
+  group_by(sample, sample_source) %>% 
+  #count(sample_source, sort = T) %>% view()
+  summarise(n = n()) %>%  
+  group_by(sample_source) %>% 
+  mutate(total = sum(n)) %>% 
+  
+  ggplot(aes(reorder(sample, n), n, fill = sample)) + 
+  geom_bar(stat = "identity", show.legend = F) + 
+  geom_text(aes(label = n), size = 2.4, hjust = -0.1) +
   coord_flip() +
+  facet_wrap(~ reorder(paste0(sample_source,"\n(n = ",total,")"), -total), scales = "free_x", ncol = 4) +
   labs(x = "", y = "*Specimen from private clinic/laboratory") +
-  geom_text(stat = 'count', aes(label = ..count..), size = 2.4, hjust = -0.1) +
-  scale_y_continuous(limits = c(0,ymax$n + 25),expand = c(0.01, 0.1)) +
-  facet_wrap(~fct_infreq(sample_source),scales = "free_x",ncol = 4) +
+  scale_y_continuous(limits = c(0,ymax$n + 40),expand = c(0.01, 0.1)) +
   theme_bw() +
   theme(legend.position = "non",
         axis.text = element_text(color = "black"),
         axis.title = element_text(face = "italic",hjust = 0.95, color = "red"),
         panel.grid.major = element_blank(),
-        strip.background = element_rect(fill = "#CEB5CE"),
+        strip.background = element_rect(fill = "#D0D0E4"),
         strip.text = element_text(size = 10))
+
   
-rm(dedup_by_id_stype)
-rm(dedup_by_pid)
 rm(ymax)
 ```
 
 
 ## 4. Cerebrospinal fluid (CSF) pathogens isolated  
 ```{r CSF, fig.height = 3.5}
-data %>% 
+csf <- data %>% 
   filter(sample == "CSF", !is.na(result), result != "No growth") %>% 
-  group_by(result) %>% count() %>% 
-  ggplot(aes(reorder(result, -n), n, fill = result)) + 
+  mutate(desc = case_when(age < 14 ~ "Pediatric (<14 years old)",
+                          TRUE ~ "Adult (>=14 years old)")) %>% 
+  group_by(result, desc) %>% 
+  count() 
+
+csf %>%   
+  ggplot(aes(reorder(result, n), n, fill = result)) + 
   geom_bar(stat = "identity", show.legend = F, width = 0.90) + 
+  facet_wrap(~desc) +
   geom_text(aes(label = n), size = 3, hjust = -0.2) +
   coord_flip() +
   labs(x = "", y = "Cases") +
-  theme_minimal() +
+  theme_bw() +
   theme(axis.text.y = element_text(face = "italic", color = "black"),
         legend.position = "NULL", 
         panel.grid = element_blank(),
         axis.text = element_blank(),
-        axis.ticks.y.right = element_blank())
+        axis.ticks.y.right = element_blank()) +
+  scale_y_continuous(limits = c(0, max(csf$n) + 5), expand = c(0.001,0.1))
 ```
 
 
@@ -220,11 +220,7 @@ Blood culture is defined as a critical specimen for patient care. Data from bloo
 
 Patient identification and blood samples were filtered to define the number of patient requests by month. We have **`r data %>% filter(sample=="Blood Culture") %>% distinct(patient_id,keep.all=T) %>% summarise(n=n()) %>% mutate_if(is.numeric,format,big.mark=",")`** patient(s) blood culture requests. Calculate true pathogen rate:
 
-<center>
-
-![](Images/True_pathogen_formula.png){width="50%"}
-
-</center>
+<center>![](Images/True_pathogen_formula.png){width="50%"}</center>
 
 The true pathogen rate expected range is 6% to 12%.
 
@@ -264,26 +260,31 @@ rm(bc,bc_org,merge_bc_org)
 
 ### 5.2. Bloodstream pathogen isolated
 
-```{r Bloodstream pathogens isolated}
+```{r Bloodstream pathogens isolated, fig.height = 5.5}
 # finding maximum for y lim
 ymax <- bc_first_isolate %>% 
   group_by(result) %>% 
   summarise(n = n(),.groups = "drop") %>% 
   top_n(n = 1)
 
-bc_first_isolate %>% 
-  ggplot(aes(fct_infreq(result), fill = result)) +
-  geom_bar() +
-  geom_text(stat = 'count', aes(label = ..count..), size = 3, hjust = -0.2) +
+bc_first_isolate %>%
+  mutate(desc = case_when(age < 14 ~ "Pediatric (<14 years old)",
+                          TRUE ~ "Adult (>=14 years old)")) %>% 
+  group_by(result, desc) %>% 
+  summarise(n = n()) %>% 
+  ggplot(aes(reorder(result, n), n, fill = result)) +
+  geom_bar(stat = "identity") + facet_wrap(~ desc) +
+  geom_text(aes(label = n), size = 3, hjust = -0.2) +
   labs(x = "",y = "Cases") +
   coord_flip() +
-  theme_minimal() +
+  theme_bw() +
   theme(axis.text.y = element_text(face = "italic", color = "black"),
         legend.position = "NULL", 
         panel.grid = element_blank(),
         axis.text = element_blank(),
+        strip.background = element_rect(fill = "#CCE8EA"),
         axis.ticks.y.right = element_blank()) +
-  scale_y_continuous(limits = c(0,ymax$n + 3),expand = c(0.01, 0.1))
+  scale_y_continuous(limits = c(0, ymax$n + 5),expand = c(0.01, 0.1))
 
 rm(ymax)
 ```
@@ -317,10 +318,7 @@ rm(da,df)
 
 Blood culture contamination can lead to inappropriate treatment of patients, over use of resources and a workload burden. Microbiologists are obliged to monitor and report contamination rate regularly to specimen collectors. We defined contaminant as *Coagulase negative Staphylococci*, *Corynebacterium sp.*, *Streptococcus viridans, alpha-hem.*, *Micrococcus sp.* in blood culture in the 30 days episode.
 
-<center>
-
-![](Images/Contamination_formula.png "contamination"){width="343"}
-</center>
+<center>![](Images/Contamination_formula.png "contamination"){width="343"}</center>
 
 The expectation of contamination rate is less than 3%.
 
@@ -720,8 +718,8 @@ rm(org_notifiable,org)
 ```
 
 **Screening multi-drug resistant organisms isolate from all specimen types**  
-- Cefoxitin disk for methicillin-resistant staphylococcus aureus (MRSA)  
-- Vancomycin Etest for vancomycin intermediate (VISA) or vancomycin resistant (VRSA)  
+- Cefoxitin resistant for methicillin-resistant staphylococcus aureus (MRSA)  
+- Vancomycin for vancomycin intermediate staphylococcus aureus (VISA) or vancomycin resistant staphylococcus aureus (VRSA)  
 - Ceftriaxone and/or ceftazidime non susceptible for Extended Spectrum Beta-lactamase (ESBL)  *Escherichia coli* and *Klebsiella pneumoniae*  
 - Imipenem and/or meropenem non susceptible for Carbapenem-resistant (CRE) *Escherichia coli* and *Klebsiella pneumoniae* 
 
@@ -1118,9 +1116,9 @@ rm(ac)
 
 
 
-## 10. Aknowledgement
-
+## 10. Aknowledgement  
 We gratefully acknowledge funding support from Defense Threat Reduction Agency (DTRA), [DMDP](http://dmdp.org), `r dic$hospital_name` and the Ministry of Health Cambodia.
+
 ------------------------------------------------------------------------
 
 ```{=html}
