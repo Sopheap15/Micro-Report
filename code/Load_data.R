@@ -77,6 +77,16 @@ data <- left_join(data,ward, by = c("sample_source" = "ward_from_Camlis")) %>%
 
 rm(ward)
 
+# Deduplication----
+# deduplicare by patient ID
+dedup_by_pid <- data %>% 
+  arrange(collection_date) %>% 
+  distinct(patient_id,.keep_all = T)
+# deduplicare by patient id, lab id and sample type
+dedup_by_id_stype <- data %>% 
+  arrange(collection_date) %>% 
+  distinct(patient_id, lab_id, sample,.keep_all = T)
+
 # Month -----
 month <- data.frame(collection_date_in_month = factor(c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"), levels = month.abb)) 
 
@@ -99,6 +109,9 @@ bc_cont_first_isolate <- data %>% # need to modify on contamination organism
   filter(sample == "Blood Culture") %>% 
   filter(result %in% c(cont_org_list)) %>% 
   filter_first_isolate(episode_days = 30, col_patient_id = "patient_id",col_date = "collection_date",col_mo = "result")
+
+
+
 
 
 

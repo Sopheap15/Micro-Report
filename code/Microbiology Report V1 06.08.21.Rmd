@@ -131,13 +131,14 @@ ymax <- sample_by_month %>%
 # plot bar chart
 sample_by_month %>% 
   group_by(collection_date_in_month) %>% 
-  count(sample) %>%
+  count(sample) %>% 
+ # mutate(total = sum(n)) %>% 
   ggplot(aes(reorder(sample, n), n, fill = sample)) + 
   geom_bar(stat = "identity", show.legend = F) +
   geom_text(aes(label = n), size = 2.4, hjust = -0.1) +
   labs(x = "", y = "") +
   coord_flip() + 
-  facet_wrap(~collection_date_in_month, ncol = 3) +
+  facet_wrap(~ collection_date_in_month, ncol = 3) +
   theme_bw() +
   theme(axis.text = element_text(color = "black"),
         axis.title = element_text(size = 10),
@@ -187,13 +188,21 @@ rm(ymax)
 
 
 ## 4. Cerebrospinal fluid (CSF) pathogens isolated  
+```{r positive csf}
+csf <- data %>% 
+  filter(sample == "CSF", !is.na(result), result != "No growth") %>% 
+  summarise(n = n())
+```
+There were `r csf` CSF positive.
+
 ```{r CSF, fig.height = 3.5}
+if (csf > 0) {
 csf <- data %>% 
   filter(sample == "CSF", !is.na(result), result != "No growth") %>% 
   mutate(desc = case_when(age < 14 ~ "Pediatric (<14 years old)",
                           TRUE ~ "Adult (>=14 years old)")) %>% 
   group_by(result, desc) %>% 
-  count() 
+  summarise(n = n()) 
 
 csf %>%   
   ggplot(aes(reorder(result, n), n, fill = result)) + 
@@ -209,6 +218,7 @@ csf %>%
         axis.text = element_blank(),
         axis.ticks.y.right = element_blank()) +
   scale_y_continuous(limits = c(0, max(csf$n) + 5), expand = c(0.001,0.1))
+      }
 ```
 
 
@@ -974,10 +984,9 @@ da %>%
   geom_bar(aes(collection_date_in_month,n,fill = sample),stat = "identity",width = 0.5) +
   geom_line(aes(collection_date_in_month,total),group = 1,color = "blue") +
   geom_label(aes(collection_date_in_month,total,label = total),stat = "identity") +
-  #scale_fill_discrete(breaks=c("Blood Culture","CSF","Body Fluid","Pus","Urine","Genital swab","Tissue","Sputum","Stool"))+
   theme_bw() +
   labs(x = "Month", y = "Salmonella cases") +
-  ylim(0,max(da$total)) +
+  scale_y_continuous(limits = c(0, max(da$total) + 2), breaks = seq(0, max(da$total) + 2, 1)) +
   theme(legend.title = element_blank()) +
   #guides(fill = guide_legend(reverse=TRUE))+
   scale_fill_manual(values = c("white",# blank
@@ -988,14 +997,12 @@ da %>%
                              "#e3b6b6",# genital swab
                              "#dd859b", # Tissue grey
                              "#ae954a" )) # stool
-  #scale_y_continuous(limits = c(0,max(da$total)+1))
-  #scale_y_continuous(breaks = seq(0, 10, by = 1))
 }
 
 
 ```
 
-## 9. Cummulative Antibiotic Susceptibility Testing (cAST)
+## 9. Cumulative Antibiotic Susceptibility Testing (cAST)
 
 We filter [blood culture]{style="color:red"} by first pathogen isolated in an episode of 30 days and apply all EUCAST expert rules for Intrinsic Resistance and Unusual Phenotypes (AMR v3.2, 2020) before analyzing antibiotic susceptibility patterns. We produced cAST for pathogen in the [GLASS](https://www.who.int/initiatives/glass) priority pathogen list.
 
@@ -1116,7 +1123,7 @@ rm(ac)
 
 
 
-## 10. Aknowledgement  
+## 10. Acknowledgement  
 We gratefully acknowledge funding support from Defense Threat Reduction Agency (DTRA), [DMDP](http://dmdp.org), `r dic$hospital_name` and the Ministry of Health Cambodia.
 
 ------------------------------------------------------------------------
