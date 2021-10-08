@@ -28,8 +28,12 @@ dic <- dic %>%
 data <- read_excel(here("data","Bacteriology Report.xlsx"), skip = as.numeric(dic$skip), na = c("","NA"),trim_ws = T) %>%
   clean_names() %>%
   mutate_at(vars(contains("date")), as.Date, format = "%d-%m-%Y") %>% 
-  mutate(sex = factor(sex),comment = x51) %>% 
+  mutate(sex = factor(sex), comment = x51) %>% 
   select(-x51)
+
+# deduplicate data
+data <- data %>% 
+  distinct(patient_id, lab_id, collection_date, sample, result, .keep_all = T)
 
 # Filter data base on dictionary
 data <- data %>% 

@@ -26,7 +26,6 @@ knitr::opts_chunk$set(echo = F,
 
 ## 1. Introduction {.tabset}
 ### Contexts
-
 Siem Reap, Takeo, Battambang and Kampong Cham clinical microbiology laboratories based at Provincial Referral Hospitals (250-300 beds), receive technical and supply support such as long term mentoring, culture media and diagnostic reagents from the Diagnostic Microbiology Development Program ([DMDP](http://dmdp.org)).
 
 Culture media including blood culture bottles, agar plates and biochemical tubed media are produced centrally at the Central Media Making Laboratory [(CMML)](https://www.uhs.edu.kh/cmml/) at the University of Health Sciences, Phnom Penh. CMML, ISO 9001:2015 certified, performs media quality control before distribution to the clinical laboratories.
@@ -132,7 +131,7 @@ ymax <- sample_by_month %>%
 sample_by_month %>% 
   group_by(collection_date_in_month) %>% 
   count(sample) %>% 
- # mutate(total = sum(n)) %>% 
+  #mutate(total = sum(n)) %>% 
   ggplot(aes(reorder(sample, n), n, fill = sample)) + 
   geom_bar(stat = "identity", show.legend = F) +
   geom_text(aes(label = n), size = 2.4, hjust = -0.1) +
@@ -143,15 +142,19 @@ sample_by_month %>%
   theme(axis.text = element_text(color = "black"),
         axis.title = element_text(size = 10),
         panel.grid.major = element_blank())  +
-  scale_y_continuous(limits = c(0,ymax$n + 25),expand = c(0.01, 0.1))
+  scale_y_continuous(limits = c(0, ymax$n + 25),
+                     expand = c(0.01, 0.1))
   
 rm(ymax)
 rm(sample_by_month)
 ```
 
 For further insight, we stratified sample by wards
+```{r ward count}
+ward_count <- ifelse(data %>% distinct(sample_source) %>% count() >= 25, 16, 8)
+```
 
-```{r microbiology sample by ward, fig.width=8, fig.height=13}
+```{r microbiology sample by ward, fig.width=8, fig.height= ward_count}
 
 # find maximum for y axis
 ymax <- dedup_by_id_stype %>% 
@@ -279,7 +282,8 @@ ymax <- bc_first_isolate %>%
 
 bc_first_isolate %>%
   mutate(desc = case_when(age < 14 ~ "Pediatric (<14 years old)",
-                          TRUE ~ "Adult (>=14 years old)")) %>% 
+                          TRUE ~ "Adult (>=14 years old)"),
+         result = recode(result,"Streptococcus, beta-haemolytic (not Group A, not Group B)" = "Beta-streptococcus non A, non B")) %>% 
   group_by(result, desc) %>% 
   summarise(n = n()) %>% 
   ggplot(aes(reorder(result, n), n, fill = result)) +
