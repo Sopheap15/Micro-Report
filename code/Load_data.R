@@ -44,7 +44,12 @@ data <- data %>%
 
 # Recode organism name
 data <- data %>% 
-  mutate(result = gsub(c(" sp.$|1$|2$|^Presumptive|,.not albicans$|, non-typhi$|,  non‐Typhi/non‐Paratyphi$"),"",result),
+  mutate(result = case_when(str_detect(result, "Micrococcus") == TRUE ~ "Micrococcus",
+                            str_detect(result, "Bacillus") == TRUE ~ "Bacillus",
+                            str_detect(result, "Corynebacterium") == TRUE ~ "Corynebacterium",
+                            str_detect(result, "viridans") == TRUE ~ "Streptococcus viridans, alpha-hem.",
+                            TRUE ~ result),
+         result = gsub(c(" sp.$|1$|2$|^Presumptive|,.not albicans$|, non-typhi$|,  non‐Typhi/non‐Paratyphi$"),"",result),
          result = trimws(result, which = "both"), # with remove sp., 1, 2 and presumptive and then remove leading and trailing space
          mo = as.mo(result))  # convert result to mo as organism according to AMR package
 
