@@ -1,6 +1,6 @@
-# Load Library----
+# Load Library ----
 library(here)
-library(tidyverse,warn.conflicts = F)
+library(tidyverse, warn.conflicts = F)
 library(janitor)
 library(kableExtra)
 library(AMR)
@@ -86,7 +86,7 @@ data <- left_join(data,ward, by = c("sample_source" = "ward_from_Camlis")) %>%
 
 rm(ward)
 
-# Deduplication----
+# Deduplication ----
 # deduplicare by patient ID
 dedup_by_pid <- data %>% 
   arrange(collection_date) %>% 
@@ -99,7 +99,7 @@ dedup_by_id_stype <- data %>%
 # Month -----
 month <- data.frame(collection_date_in_month = factor(c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"), levels = month.abb)) 
 
-# contamination organism ----
+# Contamination organism ----
 cont_org_list <- c("Coagulase Negative Staphylococcus",
                    "Corynebacterium",
                    "Streptococcus viridans, alpha-hem.",
@@ -107,7 +107,7 @@ cont_org_list <- c("Coagulase Negative Staphylococcus",
                    "Bacillus")
 
 
-# Blood culture first isolate----
+# Blood culture first isolate ----
 bc_first_isolate <- data %>%
   filter(sample == "Blood Culture") %>%  
   filter(!result %in% c(cont_org_list,"No growth")) %>% 
@@ -125,4 +125,22 @@ bc_cont_first_isolate <- data %>% # need to modify on contamination organism
 
 
 
+
+
+# Day of positive ----
+## clean comment
+comment <- data %>% 
+  select(lab_name, sample, result, comment) %>% 
+  #filter(sample == "Blood Culture", !is.na(comment), result != "No growth") %>% 
+  filter(sample == "Blood Culture", !is.na(comment)) %>% 
+  mutate(comment = str_replace_all(comment, c("\\bone" = "1", "\\btwo" = "2", "\\bthree" = "3", 
+                                              "\\bfour" = "4", "\\bfive" = "5", "\\bsix" = "6",
+                                              "\\bseven" = "7", "\\beight" = "8", "\\bnine" = "9",
+                                              "\\bzero" = "0")),
+         bottle_pos = str_extract(comment, 
+                                  pattern = "[0-9] of [0-9]"),
+         day_growth = str_extract(tolower(comment), 
+                                  pattern = "day.*?\\d|\\d.?day.?"),
+         day_growth = str_extract(day_growth, 
+                                  pattern = "[0-9]"))
 

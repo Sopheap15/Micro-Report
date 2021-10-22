@@ -184,8 +184,6 @@ dedup_by_id_stype %>%
         panel.grid.major = element_blank(),
         strip.background = element_rect(fill = "#D0D0E4"),
         strip.text = element_text(size = 10))
-
-  
 rm(ymax)
 ```
 
@@ -233,7 +231,7 @@ Blood culture is defined as a critical specimen for patient care. Data from bloo
 
 Patient identification and blood samples were filtered to define the number of patient requests by month. We have **`r data %>% filter(sample=="Blood Culture") %>% distinct(patient_id,keep.all=T) %>% summarise(n=n()) %>% mutate_if(is.numeric,format,big.mark=",")`** patient(s) blood culture requests. Calculate true pathogen rate:
 
-<center>![](Images/True_pathogen_formula.png){width="50%"}</center>
+<center>![formula calculate true pathogen](Images/True_pathogen_formula.png){width="50%"}</center>
 
 The true pathogen rate expected range is 6% to 12%.
 
@@ -483,7 +481,7 @@ b_volume <- data %>%
 
 <!-- Adult blood culture volume -->
 
-#### 4.5.1. Adult
+#### 5.5.1. Adult
 
 ```{r adult blood volume}
 # Adult blood culture blood volume
@@ -592,7 +590,7 @@ full_join(df,da) %>%
 rm(da,df,ad_request)
 ```
 
-#### 4.5.2. Pediatric
+#### 5.5.2. Pediatric
 
 <!-- Pediatric blood volume -->
 
@@ -638,7 +636,7 @@ p_volume %>%
 rm(t_bottle,p_volume)
 ```
 
-#### 4.5.3. Adult and Pediatric
+#### 5.5.3. Adult and Pediatric
 
 ```{r checking missing blood culture volume}
   bottle <- b_volume %>% 
@@ -680,6 +678,37 @@ if (miss_bv > 0) {
 
   rm(bottle,bottle_A,bottle_B,missing_bv,miss_bv,ad_bottle,b_volume)
 ```
+
+
+
+### 5.6. Blood culture day of positive
+Microbiology laboratory always reports day of blood culture positive in comment. We filtered common isolated organism. `r comment %>% filter(is.na(day_growth)) %>% count()` record(s) were not mentioned day of positive and excluded from analysis.
+
+```{r day of positive}
+organism <- c("Escherichia coli", "Klebsiella pneumoniae", "Acinetobacter","Burkholderia pseudomallei", "Pseudomonas aeruginosa", "Non-fermenting gram negative rods", "Staphylococcus aureus", "Coagulase Negative Staphylococcus")
+
+day_growth <- comment %>% 
+  filter(result %in% organism, !is.na(day_growth)) %>% 
+  mutate(result = factor(result, levels = organism)) %>% 
+  group_by(result, day_growth) %>% 
+  count(day_growth)
+
+day_growth %>% 
+  ggplot(aes(day_growth, n, fill = day_growth)) + 
+  geom_bar(stat = "identity", show.legend = F) +
+  geom_text(aes(label = n), vjust = -0.1, size = 2.5) +
+  facet_wrap(~ result) +
+  labs(y = "Cases", x = "Day") +
+  coord_cartesian(expand = c(0, 0), ylim = c(0, max(day_growth$n) * 1.2 )) + 
+  theme_bw() +
+  theme(
+        axis.text = element_text(color = "black"),
+        #panel.grid.major = element_blank(),
+        strip.background = element_rect(fill = "#D5DBDB"),
+        strip.text = element_text(size = 9, face = "italic"))
+```
+
+
 
 ## 6. Notifiable and other important pathogens list
 
