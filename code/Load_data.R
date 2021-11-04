@@ -1,6 +1,6 @@
-# Load Library ----
+# Load Library----
 library(here)
-library(tidyverse, warn.conflicts = F)
+library(tidyverse,warn.conflicts = F)
 library(janitor)
 library(kableExtra)
 library(AMR)
@@ -8,7 +8,7 @@ library(readxl)
 
 # Load dictionary ----
 
-dic <- read_excel(here("data","Dictionary.xlsx"),sheet = "hospital",col_names = T,trim_ws = T)
+dic <- read_excel(here("data","Dictionary.xlsx"), sheet = "hospital", col_names = T, trim_ws = T)
 
 dic <- dic %>% 
   select(parameter = Parameter,full_name = `Full name`) %>%
@@ -44,21 +44,22 @@ data <- data %>%
 
 # Recode organism name
 data <- data %>% 
-  mutate(result = case_when(str_detect(result, "Micrococcus") == TRUE ~ "Micrococcus",
+  mutate(result = str_remove(result, "(^\\W+)|(\\W+$)"), 
+         result = case_when(str_detect(result, "Micrococcus") == TRUE ~ "Micrococcus",
                             str_detect(result, "Bacillus") == TRUE ~ "Bacillus",
                             str_detect(result, "Corynebacterium") == TRUE ~ "Corynebacterium",
                             str_detect(result, "viridans") == TRUE ~ "Streptococcus viridans, alpha-hem.",
                             TRUE ~ result),
-         result = gsub(c(" sp.$|1$|2$|^Presumptive|,.not albicans$|, non-typhi$|,  non‐Typhi/non‐Paratyphi$"),"",result),
+         result = gsub("\\ssp(\\.+)?$|\\d$|^[Pp]resumptive|,|.not albicans$|\\snon-[tT]yphi$|non-[tT]yphi/non-[pP]aratyphi$", "", result), 
          result = trimws(result, which = "both"), # with remove sp., 1, 2 and presumptive and then remove leading and trailing space
          mo = as.mo(result))  # convert result to mo as organism according to AMR package
 
 # Convert antibiotic name to standard
 data <- data %>% 
-  mutate(CRO = coalesce(ceftriaxone,ceftriaxone_30_gnb),
-         CHL = coalesce(chloramphenicol,chloramphenicol_30),
-         NOR = coalesce(norfloxacin,norfloxacin_10_gnb),
-         SXT = coalesce(trimeth_sulfa,trimeth_sulfa_1_25)) %>% 
+  mutate(CRO = coalesce(ceftriaxone, ceftriaxone_30_gnb),
+         CHL = coalesce(chloramphenicol, chloramphenicol_30),
+         NOR = coalesce(norfloxacin, norfloxacin_10_gnb),
+         SXT = coalesce(trimeth_sulfa, trimeth_sulfa_1_25)) %>% 
   select(-ceftriaxone, -ceftriaxone_30_gnb,-chloramphenicol,
          -chloramphenicol_30,-norfloxacin,-norfloxacin_10_gnb,
          -trimeth_sulfa,-trimeth_sulfa_1_25) %>% 
@@ -86,7 +87,7 @@ data <- left_join(data,ward, by = c("sample_source" = "ward_from_Camlis")) %>%
 
 rm(ward)
 
-# Deduplication ----
+# Deduplication----
 # deduplicare by patient ID
 dedup_by_pid <- data %>% 
   arrange(collection_date) %>% 
@@ -107,7 +108,7 @@ cont_org_list <- c("Coagulase Negative Staphylococcus",
                    "Bacillus")
 
 
-# Blood culture first isolate ----
+# Blood culture first isolate----
 bc_first_isolate <- data %>%
   filter(sample == "Blood Culture") %>%  
   filter(!result %in% c(cont_org_list,"No growth")) %>% 
@@ -127,8 +128,8 @@ bc_cont_first_isolate <- data %>% # need to modify on contamination organism
 
 
 
-# Day of positive ----
-## clean comment
+# Day of positive----
+## clean comment----
 comment <- data %>% 
   select(lab_name, sample, result, comment) %>% 
   #filter(sample == "Blood Culture", !is.na(comment), result != "No growth") %>% 

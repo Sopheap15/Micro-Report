@@ -116,7 +116,7 @@ dedup_by_pid %>%
 
 A patient can have more than one microbiology specimen. We assume one specimen has one unique sample identification number. After removing duplicate, it remains: **`r dedup_by_id_stype %>% count() %>% mutate_if(is.numeric,format,big.mark=",")`** sample(s). We stratify data by month and sample type
 
-```{r microbiology sample by month}
+```{r microbiology sample by month, fig.height=8}
 # sample by month from site
 sample_by_month <- dedup_by_id_stype %>% 
   select(collection_date_in_month, sample)
@@ -283,8 +283,10 @@ bc_first_isolate %>%
                           TRUE ~ "Adult (>=14 years old)"),
          result = recode(result,"Streptococcus, beta-haemolytic (not Group A, not Group B)" = "Beta-streptococcus non A, non B")) %>% 
   group_by(result, desc) %>% 
-  summarise(n = n()) %>% 
-  ggplot(aes(reorder(result, n), n, fill = result)) +
+  mutate(n = n()) %>% 
+  group_by(result) %>% mutate(m = n()) %>%
+  distinct(result, desc, n, m) %>% 
+  ggplot(aes(reorder(result, m), n, fill = result)) +
   geom_bar(stat = "identity") + facet_wrap(~ desc) +
   geom_text(aes(label = n), size = 3, hjust = -0.2) +
   labs(x = "",y = "Cases") +
@@ -682,7 +684,7 @@ if (miss_bv > 0) {
 
 
 ### 5.6. Blood culture day of positive
-Microbiology laboratory always reports day of blood culture positive in comment. We filtered common isolated organism. `r comment %>% filter(is.na(day_growth)) %>% count()` record(s) were not mentioned day of positive and excluded from analysis.
+Microbiology laboratory always reports day of blood culture positive in comment. We filtered common organism isolated. `r comment %>% filter(is.na(day_growth)) %>% count()` record(s) were not mentioned day of positive and excluded from analysis.
 
 ```{r day of positive}
 organism <- c("Escherichia coli", "Klebsiella pneumoniae", "Acinetobacter","Burkholderia pseudomallei", "Pseudomonas aeruginosa", "Non-fermenting gram negative rods", "Staphylococcus aureus", "Coagulase Negative Staphylococcus")
