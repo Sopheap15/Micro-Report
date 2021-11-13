@@ -1,0 +1,1214 @@
+---
+title: "<center><p style='font-weight:bold;'>`r dic$hospital_name` <br> Microbiology Laboratory Report<br>`r format(dic$start_date,'%d/%b')`-                     `r format(max(data$collection_date),'%d/%b/%Y')`</p><p style='color:#FF0000;'>\n**********</p></center>"
+output: 
+  html_document:
+    toc: true 
+    toc_float:  true
+    toc_depth: 3
+    theme: cerulean
+---
+```{=html}
+<style>
+.table-hover > tbody > tr:hover { 
+  background-color: #f4f442;
+}
+</style>
+```
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(echo = F,
+                      message = F,
+                      warning = F, 
+                      tidy = T,
+                      comment = F,
+                      fig.align = 'center',
+                      collapse = T)
+```
+
+<!-- Version 2 update on 12/11/21 -->
+## 1. Introduction {.tabset} 
+### Context
+Siem Reap, Takeo, Battambang and Kampong Cham clinical microbiology laboratories based at Provincial Referral Hospitals (250-300 beds), receive technical and supply support such as long term mentoring, culture media and diagnostic reagents from the Diagnostic Microbiology Development Program ([DMDP](http://dmdp.org)).
+
+Culture media including blood culture bottles, agar plates and biochemical tubed media are produced centrally at the Central Media Making Laboratory [(CMML)](https://www.uhs.edu.kh/cmml/) at the University of Health Sciences, Phnom Penh. CMML, ISO 9001:2015 certified, performs media quality control before distribution to the clinical laboratories.
+
+### Laboratory procedures
+#### a. Specimen processing
+
+Clinical laboratories use a manual blood culture system (CMML). Blood culture bottles are registered and staff measure blood culture volume by weighing the bottles. Air venting needles are inserted before incubation for 7 days. After overnight incubation at 35^o^C, laboratory staff inspect bottles daily for signs of organism growth such as turbidity, bubbles or hemolysis. Staff perform blind sub culture and Gram stain at 24h and terminal subculture (or Gram stain) at day 7. If positive, laboratory staff notify clinician immediately.
+
+<div>
+
+![Fig 1. Manual blood culture bottle processing](Images/Lab_manual_bl_processing.png){width="80%"}
+</div>
+
+
+#### b. Bacterial identification
+
+If organisms are detected, microbiologists will perform further identification by using Standard Operating Procedures and Job aids. Example, Dr. Ellen Jo Baron and DMDP flowcharts for identification of *Burkholderia pseudomallei* and Staphylococci.
+
+<div>
+
+![Fig 2. Identification of Burkholderia pseudomallei](Images/ID_bps.png){width="80%"}
+</div>
+
+<div>
+
+![Fig 3. Identification of Staphylococci](Images/ID_staph.png){width="80%"}
+
+</div>
+
+#### c. Antibiotic Susceptibility Testing
+
+Antibiotic Susceptibility Testing follows Clinical and Laboratory Standards Institute [(CLSI)](https://clsi.org) performance standards, M100 and M02 for disk diffusion testing. MIC using gradient diffusion (Biomerieux) is used for selected antibiotic organism combinations.
+
+<div>
+
+![Fig 4. Antibiotic Susceptibility Testing and interpretation](Images/AST.png){width="80%"}
+
+</div>
+
+### Data management
+
+Patient information and laboratory data are registered in the Cambodian laboratory information system [(CamLIS)](http://camlis.net/en/login). Every month microbiologists analyse data and communicate findings with local hospital healthcare professionals. Raw data are extracted from CamLIS as an Excel file and stored in a folder "Microbiology Report/data". Data analysis was conducted by using R Markdown with pre-writing plain texts and [R programming language](https://cran.r-project.org) version R 4.1.0. Packages tidyverse 1.2.1, AMR 1.7.1, janitor 2.1.0, kableExtra 1.3.4 were used. The report from R Markdown is generated in HTML format which can be opened with any web browser in smartphone or computer. e.g Google Chrome, Safari etc.
+
+## 2. Patient demographic 
+We assume a patient receives care at a hospital (inpatients and outpatients) or private clinics and has only one patient identification number. We removed duplicates to find the actual number of patient requests. Thus, we have: **`r dedup_by_pid %>% count() %>% mutate_if(is.numeric,format,big.mark=",")`** patient(s).
+
+### 2.1. Gender
+
+The proportion of patients by gender
+
+```{r gender distribution,fig.width=4, fig.height=4}
+dedup_by_pid %>% 
+  group_by(sex) %>% 
+  summarise(n = n(), .groups = "keep") %>%
+  ungroup %>% 
+  mutate(pct = round_half_up(n/sum(n)*100)) %>% 
+  ggplot(aes("", pct, fill = sex)) + 
+  geom_bar(stat = "identity") + 
+  coord_polar("y", start = 0) +
+  theme_void() +
+  theme(legend.title = element_blank()) +
+  scale_fill_discrete(name = "sex", labels = c("Female", "Male")) +
+  geom_text(aes(label = paste(pct,"%"),x = 1),position = position_stack(vjust = 0.5),size = 5)
+```
+
+### 2.2. Age
+
+Distribution of age group and gender. We accepted the range 0 to 110 years old. We have **`r dedup_by_pid %>% filter(age>=0, age<=110) %>% count() %>% mutate_if(is.numeric,format, big.mark = ",")`** patient(s)
+
+```{r age distribution,fig.height=4}
+dedup_by_pid %>% 
+  filter(age >= 0, age <= 110) %>% 
+  mutate(age = age_groups(age,c(1,5,15,25,35,45,55,65,81))) %>% 
+  ggplot(aes(age,fill = sex)) + 
+  geom_bar() + 
+  labs(x = "Age (year)", y = "Count") +
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank()) +
+  scale_x_discrete(labels = c("<1","1-4","5-14","15-24","25-34","35-44","45-54","55-64","65-80",">80")) +
+  scale_fill_discrete(name = "", labels = c("Female", "Male")) +
+  scale_y_continuous(expand = c(0.01, 0.1))
+
+```
+
+## 3. Microbiology specimen 
+
+A patient can have more than one microbiology specimen collected. We assume one specimen has one unique sample identification number. After removing duplicates, we have: **`r dedup_by_id_stype %>% count() %>% mutate_if(is.numeric,format,big.mark=",")`** sample(s). We stratify data by month and sample type
+
+```{r microbiology sample by month, fig.height=8}
+# sample by month from site
+sample_by_month <- dedup_by_id_stype %>% 
+  select(collection_date_in_month, sample)
+
+# finding maximum for y lim
+ymax <- sample_by_month %>% 
+  group_by(collection_date_in_month,sample) %>% 
+  summarise(n = n(),.groups = 'drop') %>%
+  top_n(n = 1)
+
+# plot bar chart
+sample_by_month %>% 
+  group_by(collection_date_in_month) %>% 
+  count(sample) %>% 
+  #mutate(total = sum(n)) %>% 
+  ggplot(aes(reorder(sample, n), n, fill = sample)) + 
+  geom_bar(stat = "identity", show.legend = F) +
+  geom_text(aes(label = n), size = 2.4, hjust = -0.1) +
+  labs(x = "", y = "") +
+  coord_flip() + 
+  facet_wrap(~ collection_date_in_month, ncol = 3) +
+  theme_bw() +
+  theme(axis.text = element_text(color = "black"),
+        axis.title = element_text(size = 10),
+        panel.grid.major = element_blank())  +
+  scale_y_continuous(limits = c(0, ymax$n + 25),
+                     expand = c(0.01, 0.1))
+  
+rm(ymax)
+rm(sample_by_month)
+```
+
+For further insight, we stratified sample by wards
+```{r ward count}
+ward_count <- ifelse(data %>% distinct(sample_source) %>% count() >= 25, 17, 8)
+```
+
+```{r microbiology sample by ward, fig.width=8, fig.height= ward_count}
+
+# find maximum for y axis
+ymax <- dedup_by_id_stype %>% 
+  group_by(sample, sample_source) %>% 
+  summarise(n = n(),.groups = 'drop') %>%
+  top_n(n = 1)
+
+dedup_by_id_stype %>% 
+  select(sample, sample_source) %>% 
+  group_by(sample, sample_source) %>% 
+  #count(sample_source, sort = T) %>% view()
+  summarise(n = n()) %>%  
+  group_by(sample_source) %>% 
+  mutate(total = sum(n)) %>% 
+  
+  ggplot(aes(reorder(sample, n), n, fill = sample)) + 
+  geom_bar(stat = "identity", show.legend = F) + 
+  geom_text(aes(label = n), size = 2.4, hjust = -0.1) +
+  coord_flip() +
+  facet_wrap(~ reorder(paste0(sample_source,"\n(n = ",total,")"), -total), scales = "free_x", ncol = 4) +
+  labs(x = "", y = "*Specimen from private clinic/laboratory") +
+  scale_y_continuous(limits = c(0,ymax$n + 40),expand = c(0.01, 0.1)) +
+  theme_bw() +
+  theme(legend.position = "non",
+        axis.text = element_text(color = "black"),
+        axis.title = element_text(face = "italic",hjust = 0.95, color = "red"),
+        panel.grid.major = element_blank(),
+        strip.background = element_rect(fill = "#D0D0E4"),
+        strip.text = element_text(size = 10))
+rm(ymax)
+```
+
+
+## 4. Cerebrospinal fluid (CSF) pathogens isolated 
+```{r positive csf}
+csf <- data %>% 
+  filter(sample == "CSF", !is.na(result), result != "No growth") %>% 
+  summarise(n = n())
+```
+There were `r csf` CSF positive.
+
+```{r CSF, fig.height = 3.5}
+if (csf > 0) {
+csf <- data %>% 
+  filter(sample == "CSF", !is.na(result), result != "No growth") %>% 
+  mutate(desc = case_when(age < 14 ~ "Pediatric (<14 years old)",
+                          TRUE ~ "Adult (>=14 years old)")) %>% 
+  group_by(result, desc) %>% 
+  summarise(n = n(), .groups = "drop") 
+
+csf %>%   
+  ggplot(aes(reorder(result, n), n, fill = result)) + 
+  geom_bar(stat = "identity", show.legend = F, width = 0.90) + 
+  facet_wrap(~desc) +
+  geom_text(aes(label = n), size = 3, hjust = -0.2) +
+  coord_flip() +
+  labs(x = "", y = "Cases") +
+  theme_bw() +
+  theme(axis.text.y = element_text(face = "italic", color = "black"),
+        legend.position = "NULL", 
+        panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks.y.right = element_blank()) +
+  scale_y_continuous(limits = c(0, max(csf$n) + 5), expand = c(0.001,0.1))
+      }
+```
+
+
+## 5. Blood culture 
+
+Blood culture is defined as a critical specimen. Data from blood culture can be used for quality improvement and developing guidelines, surveillance of emerging pathogens and antibiotic resistance. Only the first of each pathogen for each patient in the period of 30 days was counted. Patient identification, collection date and organism name are used to find the first isolate.
+
+### 5.1. Blood culture request by patient and true pathogen rate
+
+Patient identification and blood samples were filtered to define the number of patient requests by month. We have **`r data %>% filter(sample=="Blood Culture") %>% distinct(patient_id, keep.all=T) %>% summarise(n=n()) %>% mutate_if(is.numeric,format,big.mark=",")`** patient(s) blood culture requests. Calculate true pathogen rate:
+
+<center>![formula calculate true pathogen](Images/True_pathogen_formula.png){width="50%"}</center>
+
+The true pathogen rate expected range is 6% to 12%.
+
+```{r request and true pathgens rate}
+ # finding blood culture number each month
+ bc <- data %>%
+  filter(sample == "Blood Culture") %>% 
+  distinct(patient_id,.keep_all = T) %>% 
+  group_by(collection_date_in_month) %>%
+  summarise(blood_culture_count = n(),.groups = "drop") 
+
+bc_org <- bc_first_isolate %>% 
+  group_by(collection_date_in_month) %>%
+  summarise(pathogen_count = n(),.groups = "drop")
+
+#  merge specimen and true pathogen by month together
+merge_bc_org <- full_join(bc,bc_org) %>% 
+   mutate_all( ~replace(., is.na(.), 0)) %>% 
+  mutate(pathogen_rate = round_half_up(pathogen_count/blood_culture_count*100))
+
+merge_bc_org %>% 
+  ggplot() +
+  geom_bar(aes(collection_date_in_month,blood_culture_count, fill = collection_date_in_month),stat = "identity", width = 0.5) +
+  geom_hline(yintercept = 120,linetype = "dashed") +
+  geom_hline(yintercept = 60,linetype = "dashed") +
+  geom_label(aes(collection_date_in_month,blood_culture_count, label = blood_culture_count), size = 3) +
+  geom_line(aes(collection_date_in_month, pathogen_rate*10, group = 1),color = "red") +
+  geom_point(aes(collection_date_in_month, pathogen_rate*10), color = "red") +
+  geom_label(aes(collection_date_in_month, pathogen_rate*10,label = pathogen_rate),fill = "#FFFF00",size = 3) +
+  scale_y_continuous(sec.axis = sec_axis(~./10, name = "True pathogen rate",labels = function(x) paste0(x, " %"))) +
+  labs(x = "Month", y = "Blood culture request by patient") +
+  theme_bw() + 
+  theme(legend.position = "non", axis.title = element_text(size = 10),
+        axis.title.y.right = element_text(angle = 90))
+ 
+rm(bc,bc_org,merge_bc_org)
+```
+
+### 5.2. Bloodstream pathogens isolated
+
+```{r Bloodstream pathogens isolated, fig.height = 5.5}
+# finding maximum for y lim
+ymax <- bc_first_isolate %>% 
+  group_by(result) %>% 
+  summarise(n = n(),.groups = "drop") %>% 
+  top_n(n = 1)
+
+bc_first_isolate %>%
+  mutate(desc = case_when(age < 14 ~ "Pediatric (<14 years old)",
+                          TRUE ~ "Adult (>=14 years old)"),
+         result = recode(result,"Streptococcus, beta-haemolytic (not Group A, not Group B)" = "Beta-streptococcus non A, non B")) %>% 
+  group_by(result, desc) %>% 
+  mutate(n = n()) %>% 
+  group_by(result) %>% 
+  mutate(m = n()) %>%
+  distinct(result, desc, n, m) %>% 
+  ggplot(aes(reorder(result, m), n, fill = result)) +
+  geom_bar(stat = "identity") + facet_wrap(~ desc) +
+  geom_text(aes(label = n), size = 3, hjust = -0.2) +
+  labs(x = "",y = "Cases") +
+  coord_flip() +
+  theme_bw() +
+  theme(axis.text.y = element_text(face = "italic", color = "black"),
+        legend.position = "NULL", 
+        panel.grid = element_blank(),
+        axis.text = element_blank(),
+        strip.background = element_rect(fill = "#CCE8EA"),
+        axis.ticks.y.right = element_blank()) +
+  scale_y_continuous(limits = c(0, ymax$n + 5),expand = c(0.01, 0.1))
+
+rm(ymax)
+```
+
+```{r true pathogens by month}
+da <- cbind(month,result = rep("Escherichia coli", 12),n = rep(0))
+
+df <- bc_first_isolate %>% 
+  select(collection_date_in_month,result) %>% 
+  group_by(collection_date_in_month,result) %>% 
+  summarise(n = n(),.groups = "drop")
+
+full_join(df, da, by = c("collection_date_in_month", "result", "n")) %>% 
+  group_by(collection_date_in_month,result) %>% 
+  summarise(n = sum(n),.groups = "keep") %>% 
+  filter(collection_date_in_month %in% last_month$collection_date_in_month) %>%
+  pivot_wider(names_from = collection_date_in_month,values_from = n) %>% 
+  mutate_all(., ~replace(., is.na(.), 0)) %>% 
+  mutate(Total = rowSums(across(where(is.numeric)))) %>% 
+  arrange(-Total) %>%
+  rename("Pathogen" = result) %>% 
+  kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c')) %>% 
+  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>%
+  row_spec(0,background = "#FFFF1E") %>% 
+  column_spec(1,italic = T)
+
+rm(da,df)
+```
+
+### 5.3. Blood culture bottle collected and contamination rate
+
+Blood culture contamination can lead to inappropriate treatment of patients, over use of resources and a workload burden. Microbiologists are obliged to monitor and report contamination rate regularly to specimen collectors. We defined contaminant as *Coagulase negative Staphylococci*, *Corynebacterium sp.*, *Streptococcus viridans, alpha-hem.*, *Micrococcus sp.*.
+
+<center>![Contamination_formula](Images/Contamination_formula.png "contamination"){width="343"}</center>
+
+The expected contamination rate is < 3%.
+
+```{r contamination rate}
+# finding number of bottle in each month. Deduplicate by laboratory identification
+bottle_by_month_data <- data %>% 
+  filter(sample == "Blood Culture") %>% 
+  select(lab_id,sample,age,volume1,volume2,collection_date_in_month) %>% 
+  distinct(lab_id,.keep_all = T) %>% 
+  pivot_longer(c("volume1","volume2"),names_to = "volume",values_drop_na = T) %>%
+  group_by(collection_date_in_month) %>%
+  summarise(bottle_by_month_data = n(),.groups = "drop") 
+
+# finding contamination organism by month and identify them as first 
+cont_org <- bc_cont_deduplicate %>% 
+  group_by(collection_date_in_month) %>%
+  summarise(cont_org = n(),.groups = "drop") 
+
+# Merging data of blood culture bottle and contamination organism 
+merge_bottle_org <- full_join(bottle_by_month_data, cont_org, 
+                              by = "collection_date_in_month") %>% 
+                  mutate_all( ~replace(., is.na(.), 0)) %>% 
+                  mutate(cont_rate = round_half_up(cont_org/bottle_by_month_data*100))
+
+# plotting data in bar chart
+merge_bottle_org %>% 
+  ggplot() +
+  geom_bar(aes(collection_date_in_month, bottle_by_month_data, 
+               fill = collection_date_in_month), stat = "identity",width = 0.5) +
+  geom_hline(yintercept = 60, linetype = "dashed",color = "red") +
+  geom_label(aes(collection_date_in_month,bottle_by_month_data, label = bottle_by_month_data), size = 3) +
+  geom_line(aes(collection_date_in_month, cont_rate*20, group = 1), color = "red") +
+  geom_point(aes(collection_date_in_month, cont_rate*20), color = "black") +
+  geom_label(aes(collection_date_in_month, cont_rate*20,label = cont_rate),fill = "#FFFF00",size = 3) +
+  scale_y_continuous(sec.axis = sec_axis(~./20, name = "Contamination rate",labels = function(x) paste0(x, " %"))) +
+  labs(x = "Month", y = "Blood culture bottles") +
+  theme_bw() +
+  theme(legend.position = "non", axis.title = element_text(size = 10),
+        axis.title.y.right = element_text(angle = 90))
+ 
+rm(bottle_by_month_data, merge_bottle_org)
+
+```
+
+NB: To count total number of blood culture bottle collected, we use the blood culture volume field. If blood culture volume is not recorded in CamLIS, the total number of blood culture collected will be lower and the contamination rate will be higher then the real situation. 
+
+```{r contamination organism by month}
+
+da <- cbind(month,result = rep(c("Bacillus","Coagulase Negative Staphylococcus","Corynebacterium","Streptococcus viridans, alpha-hem.","Micrococcus"),12),n = rep(0,12))             
+
+df <- bc_cont_deduplicate %>%
+  select(collection_date_in_month,result) %>% 
+  group_by(collection_date_in_month,result) %>%
+  summarise(n = n(),.groups = "keep")
+  
+  full_join(df, da, by = c("collection_date_in_month", "result", "n")) %>% group_by(collection_date_in_month,result) %>% 
+  summarise(n = sum(n), .groups = "drop") %>%
+  filter(collection_date_in_month %in% last_month$collection_date_in_month) %>% 
+  pivot_wider(names_from = collection_date_in_month,values_from = n) %>%
+  #mutate_all( ~replace(., is.na(.), 0)) %>%
+  adorn_totals("col") %>% # add column total at the end
+  #mutate(Total=rowSums(across(where(is.numeric)))) %>% 
+  arrange(-Total) %>%
+  rename("Organism" = result) %>% 
+  kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c')) %>% 
+  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  row_spec(0,background = "#E5C4FF") %>% 
+  column_spec(1,italic = T)
+  
+  rm(da,df)
+```
+
+### 5.4. Blood culture true pathogen rate and contamination rate by wards
+
+```{r true pathogens and contatamination,results='asis'}
+# finding patient request by wards
+request <- data %>% 
+  filter(sample == "Blood Culture") %>% 
+  distinct(patient_id,lab_id,sample,.keep_all = T) %>% 
+  group_by(sample_source) %>% 
+  summarise("Patient request" = n()) 
+
+org <- bc_first_isolate %>% 
+  group_by(sample_source) %>% 
+  summarise("True pathogen" = n())
+
+# merge patient request and true pathogens by wards
+r_org <- merge(request,org,all = T) %>% 
+  as.data.frame() %>% 
+  mutate_all( ~replace(., is.na(.), 0)) %>% 
+  mutate("True pathogen" = paste0(`True pathogen`," (",round_half_up(`True pathogen`/`Patient request`*100)," %)"))
+
+# finding number of bottle by wards
+bottle <- data %>% 
+  filter(sample == "Blood Culture") %>% 
+  distinct(lab_id,.keep_all = T) %>% 
+  pivot_longer(c("volume1","volume2"),names_to = "volume",values_drop_na = T) %>%
+  group_by(sample_source) %>% 
+  summarise("Number of bottle" = n())
+
+# finding contamination organism by wards
+cont <- bc_cont_deduplicate %>% 
+  group_by(sample_source) %>%
+  summarise(Contamination = n())
+
+# merge number of bottle and contamination 
+bottle_cont <- merge(bottle,cont,all = T) %>% 
+  mutate_all( ~replace(., is.na(.), 0)) %>% 
+  mutate("Contamination" = paste0(Contamination," (", round_half_up(Contamination/`Number of bottle`*100,0)," %)"))  
+
+
+# merge patient request, true pathogen, number of bottle and contamination by wards
+merge(r_org,bottle_cont,all = T) %>% 
+  rename(Wards = sample_source, `True pathogens (%)` = `True pathogen`, `Contamination (%)` = Contamination) %>%  
+  arrange(-`Patient request`) %>% 
+  kable(align = c('l','c','c','c','c')) %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped", "hover","responsive")) %>% 
+  row_spec(0, background = "#9DC055") %>% 
+  add_footnote(label = "* Specimen from private clinc/laboratory",notation = "non")
+
+
+# remove variables
+rm(bottle_cont,cont,bottle,r_org,org,request, cont_org)
+
+```
+
+### 5.5. Blood culture volume
+
+Blood culture volume is vital to detect organism growth. For adult patients, two bottles are collected from two different venipunctures with the target of 8-12ml of blood and pediatric patients, one bottle collected with the target of 1-6ml of blood. One patient may grow two organisms and is represented by two rows in the CamLIS database. One sample has only one unique laboratory identification number. Therefore, we removed blood culture volume duplicates by sample laboratory identification number.
+
+
+```{r b_volume}
+# create a column to save if blood culture volume is correct, low or high
+b_volume <- data %>%
+  filter(sample == "Blood Culture") %>% 
+  distinct(lab_id,.keep_all = T) %>% 
+  pivot_longer(c("volume1","volume2"),names_to = "bottle") %>% 
+  mutate(vs = case_when(age<1 & value <0.5   ~  "Too low",  # Pediatric
+                       age<1 & value <=6    ~  "Correct",
+                       age<1 & value >6     ~  "Too high",
+                       age<14 & value <2    ~  "Too low",
+                       age<14 & value <=6   ~  "Correct",
+                       age<14 & value >6    ~  "Too high",
+                       age>=14 & value < 8  ~  "Too low",     #Adult
+                       age>=14 & value <=12 ~  "Correct",
+                       age>=14 & value >12  ~  "Too high",
+                       is.na(value)         ~  "no volume"
+  ))
+
+```
+
+<!-- Adult blood culture volume -->
+
+#### 5.5.1. Adult
+
+```{r adult blood volume}
+# Adult blood culture blood volume
+ad_volume <- b_volume %>% 
+  filter(age >= 14, vs != "no volume") %>%
+  group_by(collection_date_in_month) %>% 
+  mutate(bottle = n()) %>%
+  group_by(collection_date_in_month,bottle,vs) %>% 
+  summarise(n = n(),pect = n/bottle, .groups = "keep") %>% 
+  distinct(collection_date_in_month,.keep_all = T) %>% 
+  mutate(vs = case_when(vs=="Too low"  ~ "Too low (<8ml)",
+                      vs=="Correct"  ~ "Correct (8-12ml)",
+                      vs=="Too high" ~ "Too high (>12ml)"))
+
+# calculate total number of bottle
+t_bottle <- ad_volume %>% 
+  as.data.frame() %>% 
+  distinct(collection_date_in_month,.keep_all = T) %>% 
+  summarise(t_bottle = sum(bottle))
+
+
+# plot data
+ad_volume %>% 
+  ggplot(aes(collection_date_in_month,pect,fill = factor(vs,levels = c("Too low (<8ml)","Correct (8-12ml)","Too high (>12ml)")))) +
+  geom_bar(position = position_dodge2(preserve = "single",width = 1), stat = "identity") +
+  geom_hline(yintercept = 0.8, linetype = "dashed") +
+  geom_text(aes(label = round_half_up(pect*100)), position = position_dodge2(preserve = "single",width = 1),vjust = -0.2,size = 3) +
+  theme_classic() +
+  theme(legend.title = element_blank(),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        axis.text = element_text(color = "black")) +
+  scale_fill_manual(values = c("Too low (<8ml)"   = "#FBB917", # yellow
+                               "Correct (8-12ml)" = "#41A317", # green
+                               "Too high (>12ml)" = "#F75D59")) + # red
+  scale_y_continuous(labels = scales::percent,limits = c(0,1)) +
+  labs(x = "Month",y = "Percentage (%)", title = paste0("Adult (age>=14 years) blood culture volume \n (n=",format(t_bottle,big.mark = ",")," bottles)"))
+
+rm(t_bottle,ad_volume)
+
+```
+
+<!-- Blood volume correlation -->
+
+```{r adult blood volume correlation}
+# correlation between bottle1 and bottle2. NA removed
+ad_bottle <- data %>%
+  filter(sample == "Blood Culture") %>% 
+  distinct(lab_id,.keep_all = T) %>% 
+  filter(age >= 14, volume1 != "NA", volume2 != "NA")
+
+# Total number of bottle after remove NA and age >=14
+t_bottle <- ad_bottle %>% 
+  count()
+
+#plot data
+ad_bottle %>% 
+  ggplot(aes(volume1,volume2)) +
+  geom_point(color = "#FF7F50",alpha = 0.9) +
+  geom_smooth(method = 'loess') +
+  labs(x = "Bottle A, blood volume (ml)", y = "Bottle B, blood volume (ml)", title = paste0("Correlation of blood culture volume in bottle A and bottle B \n (n=",format(t_bottle*2,big.mark = ",")," bottles)")) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+ xlim(0,14) + 
+ ylim(0,14)
+
+rm(t_bottle)
+
+```
+
+<!-- Adult only one bottle -->
+
+```{r adult patient collects one blood culture bottle}
+# adult patient request
+adult_request <- data %>%
+  filter(sample == "Blood Culture", age >= 14) %>% 
+  distinct(patient_id, lab_id, .keep_all = T) %>% # deduplicate by Pid, Lid
+  group_by(collection_date_in_month) %>%
+  summarise(ad_request = n())
+
+# Adult solidary bottle
+solitary_bottle <- data %>%
+  filter(sample == "Blood Culture", age >= 14, !is.na(volume1)) %>% 
+  distinct(lab_id, .keep_all = T) %>% 
+  filter(is.na(volume2)) %>% 
+  group_by(collection_date_in_month) %>% 
+  summarise(solitary_bottle = n())
+
+# join data frame
+ad_sol <- left_join(adult_request, solitary_bottle, by = "collection_date_in_month") %>%
+  mutate(across(where(anyNA), ~ replace_na(., 0))) 
+
+ad_sol %>% 
+ggplot() +
+  geom_bar(aes(collection_date_in_month, ad_request, fill = collection_date_in_month), show.legend = F, stat = "identity", width = 0.5) +
+  geom_label(aes(collection_date_in_month, ad_request, label = ad_request), size = 3) +
+  geom_line(aes(collection_date_in_month, solitary_bottle*2, group = 1), size = 1, color = "red") +
+  geom_label(aes(collection_date_in_month, solitary_bottle*2, label = solitary_bottle),fill = "#FFFF00", size = 3) +
+  scale_y_continuous(sec.axis = sec_axis(~.*2, name = "Solitary bottle")) +
+  labs(x = "Month",
+       y = "Adult patient",
+       title = "Adult patient with solitary blood culture bottle") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        axis.text = element_text(color = "black"),
+        axis.title.y.right = element_text(angle = 90))
+
+rm(adult_request,solitary_bottle, ad_sol)
+```
+
+#### 5.5.2. Pediatric
+
+<!-- Pediatric blood volume -->
+
+```{r pediatric blood volume}
+
+# Pediatric blood culture blood volume
+p_volume <- b_volume %>% 
+  filter(age < 14, vs != "no volume") %>%
+  group_by(collection_date_in_month) %>% 
+  mutate(bottle = n()) %>%
+  group_by(collection_date_in_month,bottle,vs) %>% 
+  summarise(n = n(),pect = n/bottle, .groups = "keep") %>% 
+  distinct(collection_date_in_month,.keep_all = T) %>% 
+  mutate(vs = case_when(vs=="Too low" ~ "Too low (<1ml)",
+                      vs=="Correct" ~ "Correct (1-6ml)",
+                      vs=="Too high" ~ "Too high (>6ml)"))
+
+# calculate total number of bottle
+t_bottle <- p_volume %>% 
+  as.data.frame() %>% 
+  distinct(collection_date_in_month,.keep_all = T) %>% 
+  summarise(t_bottle = sum(bottle))
+
+# plot data
+p_volume %>% 
+  ggplot(aes(collection_date_in_month,pect,
+             fill = factor(vs,levels = c("Too low (<1ml)","Correct (1-6ml)","Too high (>6ml)")))) +
+  geom_bar(position = position_dodge2(preserve = "single",width = 1), stat = "identity") +
+  geom_hline(yintercept = 0.8,linetype = "dashed") +
+  geom_text(aes(label = round_half_up(pect*100)), 
+            position = position_dodge2(preserve = "single",width = 1),vjust = -0.2,size = 3) +
+  theme_classic() +
+  theme(legend.title = element_blank(),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        axis.text = element_text(color = "black")) +
+  scale_fill_manual(values = c("Too low (<1ml)" = "#FBB917",
+                               "Correct (1-6ml)" = "#41A317",
+                               "Too high (>6ml)" = "#F75D59")) +
+  scale_y_continuous(labels = scales::percent,limits = c(0,1)) +
+  labs(x = "Month",y = "Percentage (%)", 
+       title = paste0("Pediatric (age<14 years) blood culture volume \n (n=",format(t_bottle,big.mark = ",")," bottles)"))
+
+rm(t_bottle,p_volume)
+```
+
+#### 5.5.3. Adult and Pediatric
+
+```{r checking missing blood culture volume}
+# create a blank data
+blank <- cbind(month, 'Bottle A' = rep(0, 12), 'Bottle B' = rep(0, 12), Total = rep(0,12))
+
+  bottle <- b_volume %>% 
+    select(-vs) %>% 
+    pivot_wider(names_from = "bottle",values_from = "value") %>% 
+    group_by(collection_date_in_month) %>% 
+    select(collection_date_in_month,age,result,volume1,volume2)
+  
+  bottle_A <- bottle %>% 
+    filter(result != "NA",is.na(volume2),is.na(volume1)) %>% 
+    summarise('Bottle A' = n()) 
+
+  bottle_B <- bottle %>% 
+    filter(volume1 != "NA", is.na(volume2), age >= 14) %>%
+    summarise('Bottle B' = n()) 
+  
+ missing_bv <- full_join(bottle_A, bottle_B, 
+                         by = "collection_date_in_month") %>% 
+    list(., blank) %>% 
+   reduce(full_join, by = "collection_date_in_month") %>% 
+   mutate_all( ~replace(., is.na(.), 0)) %>% 
+   mutate('Bottle A' = `Bottle A.x` + `Bottle A.y`,
+          'Bottle B' = `Bottle B.x` + `Bottle B.y`,
+          Total = `Bottle A` + `Bottle B`) %>% 
+   select(collection_date_in_month, 'Bottle A', 'Bottle B', Total) %>% 
+   filter(collection_date_in_month %in% last_month$collection_date_in_month) %>%
+   arrange(collection_date_in_month)
+ 
+
+ miss_bv <- missing_bv %>% select(Total) %>% sum()
+ 
+```
+
+There were `r miss_bv` bottle(s) with empty blood culture volume field in CamLIS. This table is used to monitor number of blood culture collected per patient and impact of missing blood culture volume data. 
+
+<!-- Missing blood culture volume -->
+
+```{r  missing blood culture volume}
+if (miss_bv > 0) {
+  missing_bv %>% 
+    rename(Month = collection_date_in_month) %>% 
+    arrange(Month) %>% 
+    mutate_all(~replace(., is.na(.), 0)) %>% 
+    kable(align = c("l", 'c', 'c','c'),) %>% 
+    kable_styling(bootstrap_options = c("condensed","bordered","striped", "hover","responsive")) %>%
+    add_header_above(c("Missing blood culture volume" = 4),bold = T,background = "#FFF8D8") %>%
+    row_spec(0,background = "#FFE4C4")
+}
+
+  rm(bottle,bottle_A,bottle_B,missing_bv,miss_bv,ad_bottle,b_volume)
+```
+
+
+
+### 5.6. Blood culture day of positivity
+Microbiology laboratories always report the day of blood culture positivity in the patient report comment. We present the common pathogens isolated. `r comment %>% filter(is.na(day_growth)) %>% count()` patient(s) had no record of the day of positivity and therefore could not be included in the analysis.
+
+```{r day of positive}
+organism <- c("Escherichia coli", "Klebsiella pneumoniae", "Acinetobacter","Burkholderia pseudomallei", "Pseudomonas aeruginosa", "Non-fermenting gram negative rods", "Staphylococcus aureus", "Coagulase Negative Staphylococcus")
+
+day_growth <- comment %>% 
+  filter(result %in% organism, !is.na(day_growth)) %>% 
+  mutate(result = factor(result, levels = organism)) %>% 
+  group_by(result, day_growth) %>% 
+  count(day_growth)
+
+day_growth %>% 
+  ggplot(aes(day_growth, n, fill = day_growth)) + 
+  geom_bar(stat = "identity", show.legend = F) +
+  geom_text(aes(label = n), vjust = -0.1, size = 2.5) +
+  facet_wrap(~ result) +
+  labs(y = "Cases", x = "Day") +
+  coord_cartesian(expand = c(0, 0), ylim = c(0, max(day_growth$n) * 1.2 )) + 
+  theme_bw() +
+  theme(
+        axis.text = element_text(color = "black"),
+        #panel.grid.major = element_blank(),
+        strip.background = element_rect(fill = "#D5DBDB"),
+        strip.text = element_text(size = 9, face = "italic"))
+```
+
+### 5.7. Critical result reporting
+Positive blood cultures are life threatening for patients and require immediate reporting. We analysed data and found [`r critical_result$p`%]{style="color:blue; font-size:20px; font-weight:bold; background-color: #FFEB14"} of critical results were recorded in CamLIS as reported.     
+
+## 6. Notifiable and other important pathogens list 
+
+**Pathogens per patient from all specimen types**
+
+```{r notifiable pathogens,results='asis'}
+# Create a list of organism in notifiable
+org_notifiable <- c("Burkholderia pseudomallei",
+            "Salmonella Typhi", 
+            "Salmonella Paratyphi A",
+            "Salmonella",
+            "Streptococcus suis",
+            "Vibrio cholerae",
+            "Bacillus anthracis",
+            "Yersinia pestis",
+            "Francisella tularensis",
+            "Corynebacterium diphtheriae",
+            "Neisseria gonorrhoeae",
+            "Neisseria meningitidis",
+            "Listeria monocytogenes")
+
+month_data <- data %>% 
+  distinct(collection_date_in_month) %>% 
+  pivot_wider(names_from = collection_date_in_month, 
+              values_from = collection_date_in_month)
+
+org <- data %>% # from data set select only notifiable organism
+  select(patient_id,result, collection_date_in_month) %>% 
+  filter(result %in% c(org_notifiable)) %>%
+  arrange(collection_date_in_month) %>% 
+  distinct(patient_id, .keep_all = T) %>% 
+  group_by(result, collection_date_in_month) %>% 
+  mutate(n = sum(n())) %>% 
+  select(-patient_id) %>% 
+  distinct(.keep_all = T) %>%
+  pivot_wider(names_from = collection_date_in_month,values_from = n) 
+  
+org <- org %>% # adding month with empty data
+  add_column(!!!month_data[setdiff(names(month_data), names(org))]) %>% 
+  mutate_if(is.factor, as.character) %>% 
+  mutate_all(., ~ str_replace(., pattern = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec", '0')) %>% 
+  select(result, order(factor(names(.), levels = month.abb)))
+
+list(org, data.frame(result = org_notifiable)) %>% 
+  reduce(full_join, by = "result") %>% 
+  mutate_all( ~replace(., is.na(.), 0)) %>% 
+  mutate_if(is.character, as.numeric) %>% 
+  mutate(Total = rowSums(across(where(is.numeric)))) %>% 
+  arrange(-Total) %>%
+  rename("Pathogen" = result) %>% 
+  kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c')) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover","responsive")) %>% 
+  row_spec(0,background = "#FFEB14") %>% 
+  column_spec(1,italic = T) %>% 
+  add_footnote(c("NB: Salmonella were confirmed by Salmonella O Polyvalent Antisera serology"), notation = "non") 
+ 
+rm(org_notifiable, org)
+```
+
+**Screening for multi-drug resistant organisms isolated from all specimen types**  
+- Cefoxitin resistance for methicillin-resistant staphylococcus aureus (MRSA)  
+- Vancomycin for vancomycin intermediate staphylococcus aureus (VISA) or vancomycin resistance staphylococcus aureus (VRSA)  
+- Ceftriaxone and/or ceftazidime non susceptible for Extended Spectrum Beta-lactamase (ESBL)  *Escherichia coli* and *Klebsiella pneumoniae*. A small number of isolates will be missed using this criteria.  
+- Imipenem and/or meropenem non susceptible for Carbapenem-resistant (CRE) *Escherichia coli* and *Klebsiella pneumoniae* 
+
+```{r MDR}
+mdr <- data %>% # filter and deduplicate by pateint ID
+  arrange(collection_date) %>% 
+  distinct(patient_id, .keep_all = T) %>%
+  filter(mo %in% c("B_STPHY_AURS", "B_ESCHR_COLI", "B_KLBSL_PNMN"))
+
+MRSA <- mdr %>% # filter S.aurues and resistance to Cloxacillin
+  filter(CLO == "R", mo == "B_STPHY_AURS") %>% 
+  mutate(MDR = as.character(recode(CLO, "R" = "MRSA"))) %>% 
+  select(result, MDR, collection_date_in_month) %>% 
+  group_by(result, MDR, collection_date_in_month) %>% count() 
+
+VRSA <- mdr %>% # filter S.aurues and resistance to VA
+  filter(VAN %in% c("R","I"), mo == "B_STPHY_AURS") %>% 
+  mutate(MDR = as.character(recode(VAN, "R" = "VRSA", "I" = "VRSA"))) %>% 
+  select(result, MDR, collection_date_in_month) %>% 
+  group_by(result, MDR, collection_date_in_month) %>% count() 
+
+ESBL <- mdr %>% # filter E.coli and K.pneumoniae and Cetri and Cefta
+  filter(mo %in% c("B_ESCHR_COLI", "B_KLBSL_PNMN")) %>%
+  drop_na(CRO, CAZ) %>% 
+  select(result, CRO, CAZ, collection_date_in_month) %>% 
+  mutate(CRO = case_when(CRO == "R" ~ 1, 
+                         CRO == "I" ~ 1, 
+                         CRO == "S" ~ 0),
+         CAZ = case_when(CAZ == "R" ~ 1, 
+                         CAZ == "I" ~ 1, 
+                         CAZ == "S" ~ 0), 
+         MDR = CRO + CAZ,
+         MDR =  case_when(MDR >= 1 ~ "ESBL")) %>% 
+  filter(!is.na(MDR)) %>% 
+  select(result, MDR, collection_date_in_month) %>% 
+  group_by(result, MDR, collection_date_in_month) %>%
+  count() 
+
+CRE <- mdr %>% # filter E.coli and K.pneumoniae and Imipenem and Meropenem
+  filter(mo %in% c("B_ESCHR_COLI", "B_KLBSL_PNMN")) %>%
+  drop_na(IPM, MEM) %>% 
+  select(result, IPM, MEM, collection_date_in_month) %>% 
+  mutate(IPM = case_when(IPM == "R" ~ 1, 
+                         IPM == "I" ~ 1, 
+                         IPM == "S" ~ 0),
+         MEM = case_when(MEM == "R" ~ 1, 
+                         MEM == "I" ~ 1, 
+                         MEM == "S" ~ 0), 
+         MDR = IPM + MEM,
+         MDR =  case_when(MDR >= 1 ~ "CRE")) %>% 
+  filter(!is.na(MDR)) %>% 
+  select(result, MDR, collection_date_in_month) %>% 
+  group_by(result, MDR, collection_date_in_month) %>%
+  count() 
+
+bind_rows(ESBL, CRE, MRSA, VRSA) %>% 
+  pivot_wider(names_from = "collection_date_in_month",values_from = "n") %>% 
+  add_column(!!!month_data[setdiff(names(month_data), names(.))]) %>% 
+  mutate_if(is.factor, as.character) %>% 
+  mutate_all(., ~ str_replace(., pattern = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec", '0')) %>% 
+  select(result, MDR, order(factor(names(.), levels = month.abb))) %>% 
+  mutate_all( ~replace(., is.na(.), 0)) %>% 
+  mutate_if(is.character, as.numeric) %>% 
+  mutate(Total = rowSums(across(where(is.numeric)))) %>% 
+  arrange(-Total) %>%
+  rename("Organism" = result,
+         "Mechanisms" = MDR) %>% 
+  kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c','c','c','c')) %>% 
+  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  row_spec(0, background = "#C3FDB8") %>% 
+  column_spec(1,italic = T)
+  
+rm(mdr, MRSA, ESBL, CRE, VRSA)
+```
+
+
+**Tracking [blood culture]{style="color:red"} isolates by month for possible Healthcare Associated Infection (HAI)**
+
+```{r might be in hospital org}
+# Create a list of organism in notifiable
+org_in_hos <- c("Klebsiella pneumoniae",
+                "Acinetobacter", 
+                "Burkholderia cepacia",
+                "Stenotrophomonas maltophilia",
+                "Pseudomonas aeruginosa",
+                "Pseudomonas",
+                "Non-fermenting gram negative rods",
+                "Staphylococcus aureus"
+)
+
+org <- data %>% # from dataset select only notifiable organism
+  select(patient_id, sample,result, collection_date_in_month) %>% 
+  filter(sample == "Blood Culture", result %in% org_in_hos) %>% 
+  arrange(collection_date_in_month) %>% 
+  distinct(patient_id ,.keep_all = T) %>% 
+  group_by(result, collection_date_in_month) %>% 
+  mutate(n = sum(n())) %>% 
+  select(-patient_id, -sample) %>% 
+  distinct(.keep_all = T) %>%
+  pivot_wider(names_from = collection_date_in_month, values_from = n) 
+
+org <- org %>% # adding month with empty data
+  add_column(!!!month_data[setdiff(names(month_data), names(org))]) %>% 
+  mutate_if(is.factor, as.character) %>% 
+  mutate_all(., ~ str_replace(., pattern = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec", '0')) %>% 
+  select(result, order(factor(names(.), levels = month.abb)))
+
+list(org, data.frame(result = org_in_hos)) %>% 
+  reduce(full_join, by = "result") %>% 
+  #remove_empty(which = "cols") %>%
+  mutate_all( ~replace(., is.na(.), 0)) %>% 
+  mutate_if(is.character, as.numeric) %>% 
+  mutate(Total = rowSums(across(where(is.numeric)))) %>% 
+  arrange(-Total) %>%
+  rename("Organism" = result) %>% 
+  kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c','c','c')) %>% 
+  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  row_spec(0, background = "#FFEB14") %>% 
+  column_spec(1,italic = T)
+
+rm(org_in_hos, org, month_data)
+
+```
+
+## 7. *Burkholderia pseudomallei (Bps)* 
+
+```{r check presenting of organsims}
+
+# adding month, sample and n value to data frame to fill the gape of month without data
+blank_data <- cbind(month, sample = rep("",12), n = rep(0,12))
+
+# Bps isolate number
+bps <- data %>% 
+  select(result) %>% 
+  filter(result == "Burkholderia pseudomallei") %>%
+  summarise(n = n())
+
+# Salmonella isolate number
+sal <- data %>% 
+    select(sample,result) %>% 
+    filter(result %in% c("Salmonella Paratyphi A","Salmonella Typhi", "Salmonella")) %>% 
+    summarise(n = n())
+
+# Staphylococcus aureus isolate number and blood culture
+sau <- bc_first_isolate %>% 
+    select(result) %>% 
+    filter(result == "Staphylococcus aureus") %>% 
+    summarise(n = n())
+
+# Escherichia coli isolate number
+eco <- bc_first_isolate %>% 
+    select(result) %>%  
+    filter(result == "Escherichia coli") %>% 
+    summarise(n = n())
+
+# Klebsiella pneumoniae isolate number
+kpn <- bc_first_isolate %>% 
+    select(result) %>%  
+    filter(result == "Klebsiella pneumoniae") %>% 
+    summarise(n = n())
+
+# Pseudomonas aeruginosa isolate number
+pse <- bc_first_isolate %>% 
+    select(result) %>% 
+    filter(result == "Pseudomonas aeruginosa") %>% 
+    summarise(n = n())
+
+# Acinetobacter isolate number
+ac <- bc_first_isolate %>% 
+    select(result) %>% 
+    filter(result == "Acinetobacter") %>% 
+    summarise(n = n())
+
+rm(month)
+```
+
+There were `r bps` *Burkholderia pseudomallei* reported.
+
+```{r Burkholderia pseudomallei}
+if (bps > 0) {
+
+d <- data %>% 
+  filter(result == "Burkholderia pseudomallei") %>%
+  group_by(collection_date_in_month, sample) %>% 
+  summarise(n = n(),.groups = "keep")
+
+da <- rbind(blank_data, d) %>% 
+   mutate(collection_date_in_month = factor(collection_date_in_month,levels = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")),
+          sample = sample) %>% 
+  group_by(collection_date_in_month,sample) %>%
+  summarise(n = sum(n),.groups = "keep") %>%  
+  group_by(collection_date_in_month) %>% 
+  mutate(total = sum(n)) %>% 
+  filter(collection_date_in_month %in% last_month$collection_date_in_month) 
+
+da %>% 
+  ggplot() +
+  geom_bar(aes(collection_date_in_month,n,fill = sample),stat = "identity",width = 0.5) +
+  geom_line(aes(collection_date_in_month,total),group = 1,color = "blue") +
+  geom_label(aes(collection_date_in_month,total,label = total),stat = "identity") +
+  #scale_fill_discrete(breaks=c("Blood Culture","CSF","Body Fluid","Pus","Urine","Genital swab","Tissue","Sputum","Stool"))+
+  theme_bw() +
+  labs(x = "Month", y = "Bps cases") +
+  scale_y_continuous(limits = c(0,max(da$total))) +
+  theme(legend.title = element_blank()) +
+  #guides(fill = guide_legend(reverse=TRUE))+
+  scale_fill_manual(values = c("white",# blank
+                             "#f7766d", # blood pink
+                             "#c87bff", # body fluid purple
+                             "#d1b087",# pus dark red
+                             "#f8c904",# urine yellow
+                             "#e3b6b6",# genital swab
+                             "#dd859b", # Tissue grey
+                             "#ae954a" )) # stool
+}  
+
+```
+
+<!-- Monitor AST pattern of Bps -->
+
+```{r bps AMR,results='asis'}
+if (bps > 0) {
+data %>% 
+  filter(mo == "B_BRKHL_PSDM") %>% 
+  select(mo,AMC,CAZ,MEM,SXT,GEN) %>% 
+  bug_drug_combinations() %>% 
+  rename(Organism = mo,Antibiotic = ab, Total = total) %>% 
+  mutate(Antibiotic = ab_name(Antibiotic)) %>%
+  select(Antibiotic,S,I,R,Total) %>% 
+  #mutate(Organism=mo_fullname(Organism)) %>%
+  kable(align = c("l", 'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
+  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  add_header_above(c("Antibiotic Susceptibility Patterns" = 5), bold = T,background = "#FFA500") %>% 
+  footnote("S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
+   row_spec(0, background =  "#FFE4E1") %>% 
+  column_spec(2:5, width = "5em") %>% 
+  column_spec(2,color = "#6698FF",bold = T) %>%
+  column_spec(4,color = "#F88017",bold = T)
+}
+```
+
+## 8. Salmonella 
+
+There were `r sal` *Salmonella species* reported.
+
+```{r Salmonella}
+if (sal > 0) {
+d <- data %>% 
+  filter(result %in% c("Salmonella Paratyphi A","Salmonella Typhi", "Salmonella")) %>%
+  group_by(collection_date_in_month, sample) %>% 
+  summarise(n = n(),.groups = "keep")
+
+da <- rbind(blank_data,d) %>% 
+   mutate(collection_date_in_month = factor(collection_date_in_month,levels = month.abb),
+          sample = sample) %>% 
+  #c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
+  group_by(collection_date_in_month,sample) %>%
+  summarise(n = sum(n),.groups = "keep") %>%  
+  group_by(collection_date_in_month) %>% 
+  mutate(total = sum(n)) %>% 
+  filter(collection_date_in_month %in% last_month$collection_date_in_month) 
+
+da %>% 
+  ggplot() +
+  geom_bar(aes(collection_date_in_month,n,fill = sample),stat = "identity",width = 0.5) +
+  geom_line(aes(collection_date_in_month,total),group = 1,color = "blue") +
+  geom_label(aes(collection_date_in_month,total,label = total),stat = "identity") +
+  theme_bw() +
+  labs(x = "Month", y = "Salmonella cases") +
+  scale_y_continuous(limits = c(0, max(da$total) + 2), breaks = seq(0, max(da$total) + 2, 1)) +
+  theme(legend.title = element_blank()) +
+  #guides(fill = guide_legend(reverse=TRUE))+
+  scale_fill_manual(values = c("white",# blank
+                             "#f7766d", # blood pink
+                             "#c87bff", # body fluid purple
+                             "#d1b087",# pus dark red
+                             "#f8c904",# urine yellow
+                             "#e3b6b6",# genital swab
+                             "#dd859b", # Tissue grey
+                             "#ae954a" )) # stool
+}
+
+
+```
+
+## 9. Cumulative Antibiotic Susceptibility Testing (cAST) 
+
+We filter [blood culture]{style="color:red"} by first pathogen isolated in an period of 30 days and apply all EUCAST expert rules for Intrinsic Resistance and Unusual Phenotypes (AMR v3.2, 2020) before analyzing antibiotic susceptibility patterns. We produced cAST for pathogens included in the [GLASS](https://www.who.int/initiatives/glass) priority pathogen list.
+
+### 9.1. *Staphylococcus aureus*
+
+```{r S.aureus cAST}
+if (sau > 0) {
+bc_first_isolate %>% 
+  filter(mo %in% c("B_STPHY_AURS")) %>%
+  select(mo,CLO,CZO,ERY,CLI,TCY,CHL,SXT,VAN) %>%
+  bug_drug_combinations() %>%
+  rename(Organism = mo,Antibiotic = ab, Total = total) %>% 
+  mutate(Antibiotic = ab_name(Antibiotic)) %>%
+  select(Antibiotic,S,I,R,Total) %>% 
+  kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
+  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+ # add_header_above(c("Staphylococcus aureus"=5),bold = T,italic = T,background ="#FFA500") %>% 
+  footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
+  row_spec(0,background = "#FFA500") %>% ##FFE4E1 good color pink
+  column_spec(2:5, width = "5em") %>% 
+  column_spec(2,color = "#6698FF",bold = T) %>%
+  column_spec(4,color = "#F88017",bold = T)
+}
+rm(sau)
+```
+
+### 9.2. *Escherichia coli*
+
+```{r E.coli cAST}
+if (eco > 0) {
+bc_first_isolate %>% 
+  filter(mo %in% c("B_ESCHR_COLI")) %>%
+  select(mo,AMP,AMC,CRO,CAZ,MEM,IPM,GEN,AMK,CIP,SXT,CHL) %>%
+  bug_drug_combinations() %>%
+  rename(Organism = mo,Antibiotic = ab, Total = total) %>%
+  mutate(Antibiotic = ab_name(Antibiotic)) %>%
+  select(Antibiotic,S,I,R,Total) %>% 
+  kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
+  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  #add_header_above(c("Escherichia coli"=5),bold = T,italic = T,background ="#FFA500") %>% 
+  footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
+  row_spec(0,background = "#FFA500") %>% 
+  column_spec(2:5, width = "5em") %>% 
+  column_spec(2,color = "#6698FF",bold = T) %>%
+  column_spec(4,color = "#F88017",bold = T)
+}
+rm(eco)
+```
+
+### 9.3. *Klebsiella pneumoniae*
+
+```{r K.pneumoniae cAST}
+if (kpn > 0) {
+bc_first_isolate %>% 
+  filter(mo %in% c("B_KLBSL_PNMN")) %>%
+  select(mo,AMP,AMC,CRO,CAZ,MEM,IPM,GEN,AMK,CIP,SXT,CHL) %>%
+  bug_drug_combinations() %>%
+  rename(Organism = mo,Antibiotic = ab, Total = total) %>% 
+  mutate(Antibiotic = ab_name(Antibiotic)) %>%
+  select(Antibiotic,S,I,R,Total) %>% 
+  kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
+  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  #add_header_above(c("Klebsiella pneumoniae"=5),bold = T,italic = T,background ="#FFA500") %>% 
+  footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
+  row_spec(0,background = "#FFA500") %>% 
+  column_spec(2:5, width = "5em") %>% 
+  column_spec(2,color = "#6698FF",bold = T) %>%
+  column_spec(4,color = "#F88017",bold = T)
+}
+rm(kpn)
+```
+
+### 9.4. *Pseudomonas aeruginosa*
+
+```{r P.aeruginosa cAST}
+if (pse > 0) {
+bc_first_isolate %>% 
+  filter(mo %in% c("B_PSDMN_AERG")) %>%
+  select(mo,CIP,CAZ,MEM,GEN,AMK) %>% 
+  bug_drug_combinations() %>%
+  rename(Organism = mo,Antibiotic = ab, Total = total) %>% 
+  mutate(Antibiotic = ab_name(Antibiotic)) %>%
+  select(Antibiotic,S,I,R,Total) %>% 
+  kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
+  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  #add_header_above(c("Pseudomonas aeruginosa"=5),bold = T,italic = T,background ="#FFA500") %>% 
+  footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
+  row_spec(0,background = "#FFA500") %>% 
+  column_spec(2:5, width = "5em") %>% 
+  column_spec(2,color = "#6698FF",bold = T) %>%
+  column_spec(4,color = "#F88017",bold = T)
+}
+rm(pse)
+```
+
+### 9.5. *Acinetobacter*
+
+```{r Acinetobacter cAST}
+if (ac > 0) {
+bc_first_isolate %>% 
+  filter(mo %in% c("B_ACNTB")) %>%
+  select(mo,CIP,CAZ,MEM,GEN,AMK,SXT) %>%
+  bug_drug_combinations() %>%
+  rename(Organism = mo,Antibiotic = ab, Total = total) %>% 
+  mutate(Antibiotic = ab_name(Antibiotic)) %>%
+  select(Antibiotic,S,I,R,Total) %>% 
+  kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
+  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  #add_header_above(c("Acinetobacter"=5),bold = T,italic = T,background ="#FFA500") %>% 
+  footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
+  row_spec(0,background = "#FFA500") %>% 
+  column_spec(2:5, width = "5em") %>% 
+  column_spec(2,color = "#6698FF",bold = T) %>%
+  column_spec(4,color = "#F88017",bold = T)
+}
+rm(ac)
+```
+
+
+
+## 10. Acknowledgement
+We gratefully acknowledge support from `r dic$hospital_name`, Bureau of Medical Laboratory Services (BMLS), Ministry of Health Cambodia, Laboratory Strengthening Partners, the Defense Threat Reduction Agency (DTRA) and the Diagnostic Microbiology Development Program [(DMDP)](http://dmdp.org).   
+  
+ 
+-------------------------------------------------------- 
+```{=html}
+<p align="right";> Reported by <br> 
+`r dic$report_by` <br><br><br>
+`r format(Sys.Date(),"%d-%b-%Y")`</p>
+```
+```{r clear objects}
+rm(list = ls())
+```

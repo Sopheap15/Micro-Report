@@ -1,5 +1,4 @@
 # Load Library----
-library(here)
 library(tidyverse,warn.conflicts = F)
 library(janitor)
 library(kableExtra)
@@ -7,8 +6,8 @@ library(AMR)
 library(readxl)
 
 # Load dictionary ----
-
-dic <- read_excel(here("data","Dictionary.xlsx"), sheet = "hospital", col_names = T, trim_ws = T)
+dic <- list.files(path = "data", pattern = "[Dd]ic.*(\\s)?.xls(x)?", full.names = T) %>% 
+  read_excel(sheet = "hospital", col_names = T, trim_ws = T)
 
 dic <- dic %>% 
   select(parameter = Parameter,full_name = `Full name`) %>%
@@ -25,7 +24,8 @@ dic <- dic %>%
   mutate_at(vars(contains("date")), as.Date, format = "%d-%m-%Y")
 
 # Load data ----
-data <- read_excel(here("data","Bacteriology Report.xlsx"), skip = as.numeric(dic$skip), na = c("","NA"),trim_ws = T) %>%
+data <- list.files("data", pattern = "[Bb]ac(.*)?port(\\s)?.xls(x)?", full.names = T) %>% 
+  read_excel(skip = as.numeric(dic$skip), na = c("","NA"), trim_ws = T) %>% 
   clean_names() %>%
   mutate_at(vars(contains("date")), as.Date, format = "%d-%m-%Y") %>% 
   mutate(sex = factor(sex), comment = x51) %>% 
@@ -46,8 +46,8 @@ data <- data %>%
 data <- data %>% 
   mutate(result = str_remove(result, "(^\\W+)|(\\W+$)"), 
          result = case_when(str_detect(result, "Micrococcus") == TRUE ~ "Micrococcus",
-                            str_detect(result, "Bacillus") == TRUE ~ "Bacillus",
-                            str_detect(result, "Corynebacterium") == TRUE ~ "Corynebacterium",
+                            str_detect(result, "Baci(\\w+)(?!(.+)?anth(\\w+))") == TRUE ~ "Bacillus",
+                            str_detect(result, "Cory(\\w+)(?!(.+)?diph(\\w+))") == TRUE ~ "Corynebacterium",
                             str_detect(result, "viridans") == TRUE ~ "Streptococcus viridans, alpha-hem.",
                             TRUE ~ result),
          result = gsub("\\ssp(\\.+)?$|\\d$|^[Pp]resumptive|,|.not albicans$|\\snon-[tT]yphi$|non-[tT]yphi/non-[pP]aratyphi$", "", result), 
@@ -79,7 +79,8 @@ last_month <- data %>%
   distinct(collection_date_in_month)
 
 # Read and Joint ward data ----
-ward <- read_excel(here("data","Dictionary.xlsx"),sheet = "ward",col_names = T,trim_ws = T)
+ward <- list.files(path = "data", pattern = "[Dd]ic.*(\\s)?.xls(x)?", full.names = T) %>%
+  read_excel(sheet = "ward", col_names = T, trim_ws = T)
 
 data <- left_join(data,ward, by = c("sample_source" = "ward_from_Camlis")) %>% 
   mutate(sample_source = coalesce(new_ward_in_english,sample_source)) %>%
@@ -115,18 +116,10 @@ bc_first_isolate <- data %>%
   filter_first_isolate(episode_day = 30, col_patient_id = "patient_id",col_date = "collection_date",col_mo = "result") %>% 
   eucast_rules(col_mo = "mo",rules = "all",info = F)
 
-bc_cont_first_isolate <- data %>% # need to modify on contamination organism
+bc_cont_deduplicate <- data %>% # need to modify on contamination organism
   filter(sample == "Blood Culture") %>% 
   filter(result %in% c(cont_org_list)) %>% 
-  filter_first_isolate(episode_days = 30, col_patient_id = "patient_id",col_date = "collection_date",col_mo = "result")
-
-
-
-
-
-
-
-
+  distinct(lab_id, result,.keep_all = T)
 
 # Day of positive----
 ## clean comment----
@@ -139,9 +132,19 @@ comment <- data %>%
                                               "\\bseven" = "7", "\\beight" = "8", "\\bnine" = "9",
                                               "\\bzero" = "0")),
          bottle_pos = str_extract(comment, 
-                                  pattern = "[0-9] of [0-9]"),
+                                  pattern = "[0-9] (of|Of) [0-9]"),
          day_growth = str_extract(tolower(comment), 
-                                  pattern = "day.*?\\d|\\d.?day.?"),
+                                  pattern = "(day|Day).*?\\d|\\d.?(day|Day).?"),
          day_growth = str_extract(day_growth, 
                                   pattern = "[0-9]"))
+
+# Critical result detection
+critical_result <- data %>% 
+  filter(sample == "Blood Culture", !is.na(comment), result != "No growth") %>% 
+  distinct(patient_id, .keep_all = T) %>% 
+  select(comment) %>% 
+  mutate(call = str_detect(tolower(comment), "call[ed]?|phon[ed]?|dr(\\.+)?|clinician[s]?"), 
+         total = n()) %>%
+  filter(call == T) %>% 
+  summarise(p = round_half_up(n()*100/total)) %>% distinct() 
 
