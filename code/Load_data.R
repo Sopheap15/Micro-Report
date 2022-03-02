@@ -6,6 +6,28 @@ library(AMR)
 library(readxl)
 library(plotly)
 
+# Month -----
+month <- data.frame(collection_date_in_month = factor(c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"), levels = month.abb)) 
+
+# Create a list of organism in notifiable----
+org_in_hos <- c("Klebsiella pneumoniae",
+                "Acinetobacter", 
+                "Burkholderia cepacia",
+                "Stenotrophomonas maltophilia",
+                "Pseudomonas aeruginosa",
+                "Pseudomonas",
+                "Non-fermenting gram negative rods",
+                "Staphylococcus aureus"
+)
+
+
+# Contamination organism ----
+cont_org_list <- c("Coagulase Negative Staphylococcus",
+                   "Corynebacterium",
+                   "Streptococcus viridans, alpha-hem.",
+                   "Micrococcus",
+                   "Bacillus")
+
 # Load dictionary ----
 dic <- list.files(path = "data", pattern = "^[Dd]ic.*(\\s)?.xls(x)?", full.names = T) %>% 
   read_excel(sheet = "hospital", col_names = T, trim_ws = T)
@@ -28,14 +50,33 @@ dic <- dic %>%
 data <- list.files("data", pattern = "^[Bb]ac(.*)?port(\\s)?.xls(x)?", full.names = T) %>% 
   read_excel(skip = as.numeric(dic$skip), na = c("","NA"), trim_ws = T) %>% 
   clean_names() %>%
-  remove_empty(which = "cols") %>% 
-  mutate(sex = factor(sex)) %>% 
-  rename(age = age_y) 
+  #remove_empty(which = "cols") %>% 
+  select(-c("ampi_peni","cephalosporins","gentamicin_synergy","novobiocin","metronidazole","oral_cephalosporins" )) %>% 
+  mutate(sex = factor(sex))
+  
+# convert date
+data <- data %>% 
+  mutate_at(vars("dob","collection_date", "admission_date"), convert_to_datetime) 
+
+
+# reject specimen
+reject_spe <- data %>% 
+  select(sample, result, comment, rejected_comment) 
+
+# age group
+data <- data %>% 
+  mutate(unit = str_extract(age, pattern = "\\D+"),
+         age = str_extract(age, pattern = "\\d+"),
+         age = case_when(unit == "y" ~ as.numeric(age)*365,
+                         unit == "m" ~ as.numeric(age)*12,
+                         TRUE ~ as.numeric(age))) %>% 
+  relocate(unit, .after = age)
+
 
 # deduplicate data and filter blank in column result
 data <- data %>% 
   distinct(patient_id, lab_id, collection_date, sample, result, .keep_all = T) %>% 
-  filter(!is.na(result))
+  filter(!is.na(result)) 
 
 # Filter data base on dictionary
 data <- data %>% 
@@ -99,20 +140,11 @@ rm(ward)
 dedup_by_pid <- data %>% 
   arrange(collection_date) %>% 
   distinct(patient_id,.keep_all = T)
+
 # deduplicare by patient id, lab id and sample type
 dedup_by_id_stype <- data %>% 
   arrange(collection_date) %>% 
   distinct(patient_id, lab_id, sample,.keep_all = T)
-
-# Month -----
-month <- data.frame(collection_date_in_month = factor(c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"), levels = month.abb)) 
-
-# Contamination organism ----
-cont_org_list <- c("Coagulase Negative Staphylococcus",
-                   "Corynebacterium",
-                   "Streptococcus viridans, alpha-hem.",
-                   "Micrococcus",
-                   "Bacillus")
 
 # Blood culture first isolate----
 bc_first_isolate <- data %>%
@@ -131,9 +163,17 @@ bc_cont_deduplicate <- data %>% # need to modify on contamination organism
   #filter(result %in% c(cont_org_list)) %>% 
   distinct(lab_id, result,.keep_all = T)
 
+# Possible HAI
+HAI <- data %>% # from dataset select only notifiable organism
+  select(patient_id, sample, collection_date, admission_date, result, collection_date_in_month) %>% 
+  filter(sample == "Blood Culture", result %in% org_in_hos) %>% 
+  mutate(HAI = as.numeric(collection_date - admission_date)) %>%
+  arrange(collection_date_in_month) %>% 
+  distinct(patient_id ,.keep_all = T)
+
 # Clean comment----
 comment <- data %>% 
-  select(lab_name, patient_id, collection_date, sample, result, comment) %>% 
+  select(lab_name, sample, result, comment) %>% 
   filter(sample == "Blood Culture", !is.na(comment)) %>% 
   mutate(comment = str_replace_all(comment, c("\\bone" = "1", "\\btwo" = "2", "\\bthree" = "3", 
                                               "\\bfour" = "4", "\\bfive" = "5", "\\bsix" = "6",
@@ -156,17 +196,13 @@ critical_result <- data %>%
   filter(call == T) %>% 
   summarise(p = round_half_up(n()*100/total)) %>% distinct() 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+# TAT
+TAT <- data %>% 
+  select(lab_name, patient_id, collection_date, admission_date, sample, result, comment) %>%
+  filter(!is.na(result), sample == "Blood Culture", !result  %in% c("No growth", "No significant growth found")) %>% 
+  mutate(date = str_extract(comment, pattern = "\\d+[/-]\\d+[/-]\\d+"),
+         time = str_extract(comment, pattern = "\\d+[:]\\d+")
+  ) %>% 
+  #mutate_at(c("date", "time"), ~replace(., is.na(.), "0:0")) %>% 
+  mutate(primary_report = lubridate::dmy_hm(paste(date, time)))
 

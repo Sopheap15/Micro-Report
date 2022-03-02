@@ -72,104 +72,81 @@ Antibiotic Susceptibility Testing follows Clinical and Laboratory Standards Inst
 Patient information and laboratory data are registered in the Cambodian laboratory information system [(CamLIS)](http://camlis.net/en/login). Every month microbiologists analyse data and communicate findings with local hospital healthcare professionals. Raw data are extracted from CamLIS as an Excel file and stored in a folder "Microbiology Report/data". Data analysis was conducted by using R Markdown with pre-writing plain texts and [R programming language](https://cran.r-project.org) version R 4.1.2. Packages tidyverse 1.3.1, AMR 1.8.0, janitor 2.1.0, readxl 1.3.1, plotly 4.10.0, kableExtra 1.3.4 were used. The report from R Markdown is generated in HTML format which can be opened with any web browser in smartphone or computer. e.g Google Chrome, Safari etc.
 
 ## 2. Patient demographic 
-We assume a patient receives care at a hospital (inpatients and outpatients) or private clinics and has only one patient identification number. We removed duplicates to find the actual number of patient requests. Thus, we have: **`r dedup_by_pid %>% count() %>% mutate_if(is.numeric,format,big.mark=",")`** patient(s).
+We assume a patient receives care at a hospital (inpatients and outpatients) or private clinics and has only one patient identification number. We removed duplicates to find the actual number of patient requests. Thus, we have: [**`r dedup_by_pid %>% count() %>% mutate_if(is.numeric,format,big.mark=",")`** patient(s)]{style="color:red;font-weight:bold;"}.
 
 ### 2.1. Gender
 
 The proportion of patients by gender
 
 ```{r gender distribution,fig.width=4, fig.height=4}
-# dedup_by_pid %>% 
-#   group_by(sex) %>% 
-#   summarise(n = n()) %>%
-#   ungroup %>% 
-#   mutate(pct = round_half_up(n/sum(n)*100)) %>% 
-#   mutate(sex = recode(sex, F = "Female", M = "Male")) %>% 
-#   plot_ly(type = 'pie', labels = ~sex, values = ~pct,
-#           textinfo = 'label+percent',
-#           hoverinfo = 'text',
-#           text = ~paste(sex, pct, "%"),
-#           insidetextfont = list(color = 'black', size = 14),
-#           #hole = 0.2,
-#           showlegend = FALSE,
-#           marker = list(
-#             colors = c("rgb(248, 118, 109)","rgb(3, 191, 196)")
-#            # line = list(color = '#FFFFFF', width = 4)
-#             )) %>% 
-#    config(displayModeBar = F)
-
-
 dedup_by_pid %>%
   group_by(sex) %>%
   summarise(n = n()) %>%
   ungroup %>%
   mutate(pct = round_half_up(n/sum(n)*100)) %>%
-  ggplot(aes("", pct, fill = sex)) +
-  geom_bar(stat = "identity") +
-  coord_polar("y", start = 0) +
-  theme_void() +
-  theme(legend.title = element_blank()) +
-  scale_fill_discrete(name = "sex", labels = c("Female", "Male")) +
-  geom_text(aes(label = paste(pct,"%"), x = 1),
-            position = position_stack(vjust = 0.5),size = 5)
+  mutate(sex = recode(sex, F = "Female", M = "Male")) %>%
+  plot_ly(type = 'pie', labels = ~sex, values = ~pct,
+          textinfo = 'label+percent',
+          hoverinfo = 'text',
+          text = ~paste(sex, pct, "%"),
+          insidetextfont = list(color = 'black', size = 14),
+          #hole = 0.2,
+          showlegend = FALSE,
+          marker = list(
+            colors = c("rgb(248, 118, 109)","rgb(3, 191, 196)"),
+            line = list(color = 'white', width = 4)
+            )) %>%
+   config(displayModeBar = F)
 
 ```
 
 ### 2.2. Age
 
-Distribution of age group and gender. We accepted the range 0 to 110 years old. We have **`r dedup_by_pid %>% filter(age>=0, age<=110) %>% count() %>% mutate_if(is.numeric,format, big.mark = ",")`** patient(s)
+Distribution of age group and gender. We accepted the range 0 to 110 years old. We have [**`r dedup_by_pid %>% filter(age>=0, age<=40150) %>% count() %>% mutate_if(is.numeric,format, big.mark = ",")`** patient(s)]{style="color:red; font-weight:bold;"}
 
 ```{r age distribution,fig.height=4}
-#dedup_by_pid %>% 
-  # filter(age >= 0, age <= 110) %>% 
-  # mutate(age = age_groups(age,c(1,5,15,25,35,45,55,65,81))) %>%
-  # group_by(age, sex) %>% 
-  # count() %>% 
-  # pivot_wider(names_from = sex, values_from = n) %>% 
-  # plot_ly(type = "bar", x = ~age, y = ~ M, name = "Male", 
-  #         hoverinfo = "text",
-  #         hovertext = ~paste(" Age:",age,"year\n", "Male: n=",M),
-  #         marker = list(color = "rgb(3, 191, 196)")) %>% 
-  # add_trace(y = ~ M, name = "Female",
-  #           hoverinfo = "text",
-  #           hovertext = ~paste(" Age:",age,"year\n","Female: n=", F),
-  #           marker = list(color = "rgb(248, 118, 109)")) %>% 
-  # layout(barmode = 'stack',
-  #        legend = list(x = 1, y = 0.5),
-  #        font = list(color = "black"),
-  #        xaxis = list(title = "Age (year)"),
-  #        yaxis = list(title = "Count")) %>% 
-  # config(displayModeBar = F)
-
-
-
 p <- dedup_by_pid %>%
   select(age, sex) %>% 
   mutate(sex = recode(sex, F = "Female", M = "Male")) %>% 
-  filter(age >= 0, age <= 110) %>%
-  mutate(age = age_groups(age,c(1,5,15,25,35,45,55,65,81))) %>%
+  filter(age >= 0, age <= 40150) %>% # age [0-110y]
+  mutate(age = age_groups(age,c(28,366,1826,5476,9126,12776,16426,20076,
+                                23726,29201,40150))) %>%
   group_by(age, sex) %>% count() %>% 
   ggplot() +
   geom_bar(aes(age,n, fill = sex, text = paste0(sex,": ", n)), 
            stat = "identity") +
-  labs(x = "Age (year)", y = "Count") +
+  labs(x = "Age", y = "Count") +
   theme_bw() +
   theme(panel.grid.major.x = element_blank()) +
-  scale_x_discrete(labels = c("<1","1-4","5-14","15-24","25-34","35-44","45-54","55-64","65-80",">80")) 
-  #scale_fill_discrete(name = "", labels = c("Female", "Male")) +
-  #scale_y_continuous(expand = c(0.01, 0.1))
+  scale_x_discrete(labels = c("<28d","29d-1y","1-4y","5-14y","15-24y","25-34y","35-44y","45-54y","55-64y","65-80y",">80y")) + 
+  scale_y_continuous(expand = expansion(mult = c(.01, 0.10)))
 
 ggplotly(p, tooltip = "text") %>% 
   layout(legend = list(title = list(text = ""),
                                x = 1, y = 0.5),
          font = list(color = "black")) %>% 
   config(displayModeBar = F)
+
 rm(p)
 ```
 
 ## 3. Microbiology specimen 
 
-A patient can have more than one microbiology specimen collected. We assume one specimen has one unique sample identification number. After removing duplicates, we have: **`r dedup_by_id_stype %>% count() %>% mutate_if(is.numeric,format,big.mark=",")`** sample(s). We stratify data by month and sample type
+A patient can have more than one microbiology specimen collected. We assume one specimen has one unique sample identification number. After removing duplicates, we have: [**`r dedup_by_id_stype %>% count() %>% mutate_if(is.numeric,format,big.mark=",")`** sample(s)]{style="color:red; font-weight:bold;"}. We stratify data by month and sample type
+```{r specimen color}
+specimen_color <- c("Blood Culture" = "#F7766D", # blood red
+                     "Pus" = "#D1B087", # pus yellow-gray
+                     "Urine" = "#F7A62C", 
+                     "Body Fluid" = "#C3CDF6",
+                     "CSF" = "#FFCCCC",
+                     "Sputum" = "#B4AC54",
+                     "Stool" = "#BBBBBB",
+                     "Genital swab" = "#F76ACD",
+                     "Throat swab" = "#BE3737",
+                     "Tissue" = "#DC376F"
+                               )
+```
+
 
 ```{r microbiology sample by month}
 # fig.height=8
@@ -177,90 +154,95 @@ A patient can have more than one microbiology specimen collected. We assume one 
 sample_by_month <- dedup_by_id_stype %>% 
   select(collection_date_in_month, sample)
 
-# finding maximum for y lim
-ymax <- sample_by_month %>% 
-  group_by(collection_date_in_month,sample) %>% 
-  summarise(n = n(),.groups = 'drop') %>%
-  top_n(n = 1)
 
 # plot bar chart
-sample_by_month %>% 
+p <- sample_by_month %>% 
   group_by(collection_date_in_month) %>% 
   count(sample) %>% 
-  #mutate(total = sum(n)) %>% 
   ggplot(aes(reorder(sample, n), n, fill = sample)) + 
-  geom_bar(stat = "identity", show.legend = F) +
-  geom_text(aes(label = n), size = 2.4, hjust = -0.1) +
+  geom_bar(stat = "identity", aes(text = paste0(sample, ":", n))) +
+  geom_text(aes(label = n, y = n + 7), size = 2.5) +
   labs(x = "", y = "") +
   coord_flip() + 
   facet_wrap(~ collection_date_in_month, ncol = 3) +
   theme_bw() +
-  theme(axis.text = element_text(color = "black"),
+  theme(legend.position = "none",
+        axis.text = element_text(color = "black"),
         axis.title = element_text(size = 10),
         panel.grid.major = element_blank())  +
-  scale_y_continuous(limits = c(0, ymax$n + 25),
-                     expand = c(0.01, 0.1)) +
-  scale_fill_manual(values = c("Blood Culture" = "#F7766D", # blood red
-                               "Pus" = "#D1B087", # pus yellow-gray
-                               "Urine" = "#F7A62C",
-                               "Body Fluid" = "#B3AC54",
-                               "CSF" = "#E3C5D0",
-                               "Sputum" = "#CFA937",
-                               "Stool" = "#5E615B",
-                               "Genital swab" = "#F76ACD",
-                               "Throat swab" = "#BE3737"
-                               ), limits = force)
+  scale_y_continuous(expand = expansion(mult = c(.01, .10))) +
+  scale_fill_manual(values = specimen_color, limits = force)
+
+ggplotly(p, tooltip = "text") %>% 
+  config(displayModeBar = F)
   
-rm(ymax)
-rm(sample_by_month)
+rm(p,sample_by_month)
 ```
 
-For further insight, we stratified sample by wards
-```{r ward count}
-ward_count <- ifelse(data %>% distinct(sample_source) %>% count() >= 25, 17, 12)
+For further insight, we stratified by sample sources
+```{r ward count and specimen color}
+ward_count <- ifelse(data %>% distinct(sample_source) %>% count() >= 15, 17, 14)
 ```
 
-```{r microbiology sample by ward, fig.width=8, fig.height= ward_count}
+```{r top12, fig.width=8, fig.height= ward_count}
 
-# find maximum for y axis
-ymax <- dedup_by_id_stype %>% 
-  group_by(sample, sample_source) %>% 
-  summarise(n = n(),.groups = 'drop') %>%
-  top_n(n = 1)
-
-dedup_by_id_stype %>% 
+p <- dedup_by_id_stype %>% 
   select(sample, sample_source) %>% 
   group_by(sample, sample_source) %>% 
-  #count(sample_source, sort = T) %>% view()
   summarise(n = n()) %>%  
   group_by(sample_source) %>% 
   mutate(total = sum(n)) %>% 
-  
   ggplot(aes(reorder(sample, n), n, fill = sample)) + 
-  geom_bar(stat = "identity", show.legend = F) + 
-  geom_text(aes(label = n), size = 2.4, hjust = -0.1) +
+  geom_bar(stat = "identity", aes(text = paste0(sample,": ",n))) + 
+  geom_text(aes(label = n, y = n + 4), size = 2.4) +
   coord_flip() +
-  facet_wrap(~ reorder(paste0(sample_source,"\n(n = ",total,")"), -total), scales = "free_x", ncol = 4) +
-  labs(x = "", y = "*Specimen from private clinic/laboratory") +
-  scale_y_continuous(limits = c(0,ymax$n + 40),expand = c(0.01, 0.1)) +
+  facet_wrap(~ reorder(paste0(sample_source,"\n(Total = ", total,")"), -total), ncol = 3) +
+  labs(x = "", y = "Count") +
+  scale_y_continuous(expand = expansion(mult = c(.01, .10))) +
   theme_bw() +
-  theme(legend.position = "non",
+   theme(legend.position = "none",
         axis.text = element_text(color = "black"),
-        axis.title = element_text(face = "italic",hjust = 0.95, color = "red"),
+        axis.title = element_text(color = "black"),
         panel.grid.major = element_blank(),
         strip.background = element_rect(fill = "#D0D0E4"),
-        strip.text = element_text(size = 10)) +
-  scale_fill_manual(values = c("Blood Culture" = "#F7766D", # blood red
-                               "Pus" = "#D1B087", # pus yellow-gray
-                               "Urine" = "#F7A62C",
-                               "Body Fluid" = "#B3AC54",
-                               "CSF" = "#E3C5D0",
-                               "Sputum" = "#CFA937",
-                               "Stool" = "#5E615B",
-                               "Genital swab" = "#F76ACD",
-                               "Throat swab" = "#BE3737"
-                               ), limits = force)
-rm(ymax)
+        strip.text.x = element_text(size = 10,
+                                    margin = margin(0.29,0,0.29,0, "cm")
+                                    )) + 
+  scale_fill_manual(values = specimen_color, limits = force)
+
+ggplotly(p, tooltip = "text") %>%
+  layout(margin = list(t = 55)) %>% 
+  config(displayModeBar = F)
+
+
+```
+
+Specimen rejection
+```{r specimen rejection}
+spe <- dedup_by_id_stype %>% 
+  group_by(sample) %>% summarise(m = n())
+
+
+reject_spe <- reject_spe %>% 
+  mutate(reject = case_when(sample == "Sputum" ~ str_extract(comment, ".*>.*10.*epi.*LPF")),
+         rejected_comment = case_when(
+           str_detect(rejected_comment,
+                      pattern = "\u1798\u17b7\u1793\u1798\u17b6\u1793(.*)?\u179c\u17b7\u1797\u17b6\u1782(.*)?") == TRUE ~ "No Sample",
+           TRUE ~ rejected_comment), #មិនមាន វិភាគ https://www.branah.com/unicode-converter
+         rejected_comment = str_to_title(rejected_comment)
+         ) %>% 
+  mutate(reject = coalesce(reject, rejected_comment)) %>% 
+  filter(!is.na(reject)) %>% 
+  group_by(sample, reject) %>% count() 
+
+left_join(reject_spe, spe) %>% 
+  select(Specimen = sample, `Total specimen` = m, `Total reject` = n, Reasons = reject) %>% 
+  
+  kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c')) %>% 
+  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive", "bordered")) %>%
+  row_spec(0,background = "#FFFF1E") %>% 
+  kableExtra::collapse_rows(1:2, valign = "middle")
+
 ```
 
 
@@ -270,31 +252,37 @@ csf <- data %>%
   filter(sample == "CSF", !is.na(result), result != "No growth") %>% 
   summarise(n = n())
 ```
-There were `r csf` CSF positive.
+There were [`r csf` CSF]{style="color:red; font-weight:bold;"} positive.
 
-```{r CSF, fig.height = 3.5}
+```{r CSF, fig.height = 3}
 if (csf > 0) {
 csf <- data %>% 
+  select(sample, result, age) %>% 
   filter(sample == "CSF", !is.na(result), result != "No growth") %>% 
-  mutate(desc = case_when(age < 14 ~ "Pediatric (<14 years old)",
+  mutate(desc = case_when(age < 5110 ~ "Pediatric (<14 years old)",
                           TRUE ~ "Adult (>=14 years old)")) %>% 
   group_by(result, desc) %>% 
   summarise(n = n(), .groups = "drop") 
 
-csf %>%   
+p <- csf %>%   
   ggplot(aes(reorder(result, n), n, fill = result)) + 
-  geom_bar(stat = "identity", show.legend = F, width = 0.3) + 
+  geom_bar(stat = "identity", width = 0.3, aes(text = paste0(result,": ",n))) + 
   facet_wrap(~desc) +
-  geom_text(aes(label = n), size = 3, hjust = -0.2) +
+  geom_text(aes(label = n, y = n + .3), size = 3, hjust = -0.2) +
   coord_flip() +
   labs(x = "", y = "Cases") +
   theme_bw() +
   theme(axis.text.y = element_text(face = "italic", color = "black"),
-        legend.position = "NULL", 
+        legend.position = "none", 
         panel.grid = element_blank(),
         axis.text = element_blank(),
         axis.ticks.y.right = element_blank()) +
-  scale_y_continuous(limits = c(0, max(csf$n) + 5), expand = c(0.001,0.1))
+  scale_y_continuous(expand = expansion(mult = c(.01,.10)))
+
+p$data$result <- paste0("<i>", p$data$result, "</i>")
+ggplotly(p, tooltip = "text") %>% 
+  config(displayModeBar = F)
+
       }
 ```
 
@@ -305,7 +293,7 @@ Blood culture is defined as a critical specimen. Data from blood culture can be 
 
 ### 5.1. Blood culture request by patient and true pathogen rate
 
-Patient identification and blood samples were filtered to define the number of patient requests by month. We have **`r data %>% filter(sample=="Blood Culture") %>% distinct(patient_id, keep.all=T) %>% summarise (n=n()) %>% mutate_if(is.numeric, format, big.mark=",")`** patient(s) blood culture requests. Calculate true pathogen rate:
+Patient identification and blood samples were filtered to define the number of patient requests by month. We have [**`r data %>% filter(sample=="Blood Culture") %>% distinct(patient_id, keep.all=T) %>% summarise (n=n()) %>% mutate_if(is.numeric, format, big.mark=",")`** patient(s)]{style="color:red;font-weight:bold;"} blood culture requests. Calculate true pathogen rate:
 
 <center>![formula calculate true pathogen](Images/True_pathogen_formula.png){width="50%"}</center>
 
@@ -339,10 +327,11 @@ merge_bc_org %>%
                  label = blood_culture_count), size = 3) +
   geom_line(aes(collection_date_in_month, pathogen_rate*10, group = 1),
             color = "red") +
-  #geom_point(aes(collection_date_in_month, pathogen_rate*10), color = "red") +
   geom_label(aes(collection_date_in_month, pathogen_rate*10,
                  label = pathogen_rate),fill = "#FFFF00",size = 3) +
-  scale_y_continuous(sec.axis = sec_axis(~./10, name = "True pathogen rate",labels = function(x) paste0(x, " %"))) +
+  scale_y_continuous(expand = expansion(mult = c(.01,.10)),
+                     sec.axis = sec_axis(~./10, name = "True pathogen rate",
+                                  labels = function(x) paste0(x, " %"))) +
   labs(x = "Month", y = "Blood culture request by patient") +
   theme_bw() + 
   theme(legend.position = "non", 
@@ -354,38 +343,39 @@ rm(bc,bc_org,merge_bc_org)
 
 ### 5.2. Bloodstream pathogens isolated
 
-```{r Bloodstream pathogens isolated, fig.height = 5.5}
-# finding maximum for y lim
-ymax <- bc_first_isolate %>% 
-  group_by(result) %>% 
-  summarise(n = n(),.groups = "drop") %>% 
-  top_n(n = 1)
+```{r Bloodstream pathogens isolated}
 
-bc_first_isolate %>%
-  mutate(desc = case_when(age < 14 ~ "Pediatric (<14 years old)",
+blood_path <- bc_first_isolate %>%
+  mutate(desc = case_when(age < 5110 ~ "Pediatric (<14 years old)",
                               TRUE ~ "Adult (>=14 years old)"),
          result = recode(result,"Streptococcus, beta-haemolytic (not Group A, not Group B)" = "Beta-streptococcus not A, not B")) %>% 
   group_by(result, desc) %>% 
   mutate(n = n()) %>% 
   group_by(result) %>% 
   mutate(m = n()) %>%
-  distinct(result, desc, n, m) %>% 
+  distinct(result, desc, n, m)
+
+p <- blood_path %>%
   ggplot(aes(reorder(result, m), n, fill = result)) +
-  geom_bar(stat = "identity") + 
+  geom_bar(stat = "identity", aes(text = paste0(result,": ", n))) + 
   facet_wrap(~ desc) +
-  geom_text(aes(label = n), size = 3, hjust = -0.2) +
+  geom_text(aes(label = n, y = n + 0.4), size = 3) +
   labs(x = "",y = "Cases") +
   coord_flip() +
   theme_bw() +
   theme(axis.text.y = element_text(face = "italic", color = "black"),
-        legend.position = "NULL", 
+        legend.position = "none", 
         panel.grid = element_blank(),
         axis.text = element_blank(),
         strip.background = element_rect(fill = "#CCE8EA"),
         axis.ticks.y.right = element_blank()) +
-  scale_y_continuous(limits = c(0, ymax$n + 7),expand = c(0.01, 0.1))
+  scale_y_continuous(expand = expansion(mult = c(.01, .10)))
 
-rm(ymax)
+p$data$result <- paste0("<i>", p$data$result, "</i>")
+ggplotly(p, tooltip = "text") %>% 
+  config(displayModeBar = F)
+
+rm(blood_path, p)
 ```
 
 ```{r true pathogens by month}
@@ -452,7 +442,9 @@ merge_bottle_org %>%
   geom_line(aes(collection_date_in_month, cont_rate*20, group = 1), color = "red") +
   #geom_point(aes(collection_date_in_month, cont_rate*20), color = "black") +
   geom_label(aes(collection_date_in_month, cont_rate*20,label = cont_rate),fill = "#FFFF00",size = 3) +
-  scale_y_continuous(sec.axis = sec_axis(~./20, name = "Contamination rate",labels = function(x) paste0(x, " %"))) +
+  scale_y_continuous(expand = expansion(mult = c(.01,.10)),
+                     sec.axis = sec_axis(~./20, name = "Contamination rate",
+                                         labels = function(x) paste0(x, ... = "%"))) +
   labs(x = "Month", y = "Blood culture bottles") +
   theme_bw() +
   theme(legend.position = "non", axis.title = element_text(size = 10),
@@ -490,7 +482,7 @@ df <- bc_cont_deduplicate %>%
   rm(da,df)
 ```
 
-### 5.4. Blood culture true pathogen rate and contamination rate by wards
+### 5.4. Blood culture true pathogen rate and contamination rate by sample sources
 
 ```{r true pathogens and contatamination, results='asis'}
 # finding patient request by wards
@@ -531,7 +523,7 @@ bottle_cont <- merge(bottle,cont,all = T) %>%
 
 # merge patient request, true pathogen, number of bottle and contamination by wards
 merge(r_org,bottle_cont,all = T) %>% 
-  rename(Wards = sample_source, `True pathogens (%)` = `True pathogen`, `Contamination (%)` = Contamination) %>%  
+  rename(`Sample Source` = sample_source, `True pathogens (%)` = `True pathogen`, `Contamination (%)` = Contamination) %>%  
   arrange(-`Patient request`) %>% 
   kable(align = c('l','c','c','c','c')) %>% 
   kable_styling(bootstrap_options = c("condensed", "striped", "hover","responsive")) %>% 
@@ -551,18 +543,19 @@ Blood culture volume is vital to detect organism growth. For adult patients, two
 ```{r b_volume}
 # create a column to save if blood culture volume is correct, low or high
 b_volume <- data %>%
+  select(age, volume1, volume2, sample, lab_id, collection_date_in_month, result) %>% 
   filter(sample == "Blood Culture") %>% 
   distinct(lab_id,.keep_all = T) %>% 
-  pivot_longer(c("volume1","volume2"),names_to = "bottle") %>% 
-  mutate(vs = case_when(age<1 & value <0.5   ~  "Too low",  # Pediatric
-                        age<1 & value <=6    ~  "Correct",
-                        age<1 & value >6     ~  "Too high",
-                        age<14 & value <2    ~  "Too low",
-                        age<14 & value <=6   ~  "Correct",
-                        age<14 & value >6    ~  "Too high",
-                        age>=14 & value < 8  ~  "Too low",     #Adult
-                        age>=14 & value <=12 ~  "Correct",
-                        age>=14 & value >12  ~  "Too high",
+  pivot_longer(c("volume1","volume2"), names_to = "bottle") %>% 
+  mutate(vs = case_when(age<365 & value <0.5   ~  "Too low",  # Pediatric
+                        age<365 & value <=6    ~  "Correct",
+                        age<365 & value >6     ~  "Too high",
+                        age<5110 & value <2    ~  "Too low",
+                        age<5110 & value <=6   ~  "Correct",
+                        age<5110 & value >6    ~  "Too high",
+                        age>=5110 & value < 8  ~  "Too low",     #Adult
+                        age>=5110 & value <=12 ~  "Correct",
+                        age>=5110 & value >12  ~  "Too high",
                         is.na(value)         ~  "no volume"
   ))
 
@@ -575,7 +568,7 @@ b_volume <- data %>%
 ```{r adult blood volume}
 # Adult blood culture blood volume
 ad_volume <- b_volume %>% 
-  filter(age >= 14, vs != "no volume") %>%
+  filter(age >= 5110, vs != "no volume") %>%
   group_by(collection_date_in_month) %>% 
   mutate(bottle = n()) %>%
   group_by(collection_date_in_month,bottle,vs) %>% 
@@ -594,21 +587,23 @@ t_bottle <- ad_volume %>%
 # plot data
 ad_volume %>% 
   ggplot(aes(collection_date_in_month, pect, 
-             fill = factor(vs,levels = c("Too low (<8ml)","Correct (8-12ml)","Too high       
-                                         (>12ml)")))) +
-  geom_bar(position = position_dodge2(preserve = "single", width = 1), stat = "identity") +
+             fill = factor(vs,levels = c("Too low (<8ml)",
+             "Correct (8-12ml)","Too high (>12ml)")))) +
+  geom_bar(position = position_dodge2(preserve = "single", width = 1), 
+           stat = "identity") +
   geom_hline(yintercept = 0.8, linetype = "dashed") +
   geom_text(aes(label = round_half_up(pect*100)), position = position_dodge2(preserve = "single", width = 1),vjust = -0.2, size = 3) +
-  theme_classic() +
+  theme_bw() +
   theme(legend.title = element_blank(),
         plot.title = element_text(hjust = 0.5, face = "bold"),
         axis.text = element_text(color = "black")) +
   scale_fill_manual(values = c("Too low (<8ml)"   = "#FBB917", # yellow
                                "Correct (8-12ml)" = "#41A317", # green
-                               "Too high (>12ml)" = "#F75D59")) + # red
-  scale_y_continuous(labels = scales::percent, limits = c(0,1)) +
+                               "Too high (>12ml)" = "#F75D59")) + # red 
+  scale_y_continuous(expand = expansion(mult = c(.01,.10)),
+                     labels = scales::percent, limits = c(0,1)) +
   labs(x = "Month",y = "Percentage (%)", 
-       title = paste0("Adult (age>=14 years) blood culture volume \n (n= ",format(t_bottle, big.mark = ",")," bottles)"))
+       title = paste0("Adult (age>=14 years) blood culture volume \n (Total=  ",format(t_bottle, big.mark = ",")," bottles)"))
 
 rm(t_bottle,ad_volume)
 
@@ -633,7 +628,7 @@ ad_bottle %>%
   geom_point(color = "#FF7F50",alpha = 0.9) +
   geom_smooth(method = 'loess') +
   labs(x = "Bottle A, blood volume (ml)", y = "Bottle B, blood volume (ml)", 
-       title = paste0("Correlation of blood culture volume in bottle A and bottle B \n (n=",format(t_bottle*2,big.mark = ",")," bottles)")) +
+       title = paste0("Correlation of blood culture volume in bottle A and bottle B \n (total=",format(t_bottle*2,big.mark = ",")," bottles)")) +
   theme_classic() +
   theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
  xlim(0,14) + 
@@ -648,14 +643,14 @@ rm(t_bottle)
 ```{r adult patient collects one blood culture bottle}
 # adult patient request
 adult_request <- data %>%
-  filter(sample == "Blood Culture", age >= 14) %>% 
+  filter(sample == "Blood Culture", age >= 5110) %>% 
   distinct(patient_id, .keep_all = T) %>% # deduplicate by Pid
   group_by(collection_date_in_month) %>%
   summarise(ad_request = n())
 
 # Adult solidary bottle
 solitary_bottle <- data %>%
-  filter(sample == "Blood Culture", age >= 14, !is.na(volume1)) %>% 
+  filter(sample == "Blood Culture", age >= 5110, !is.na(volume1)) %>% 
   distinct(lab_id, .keep_all = T) %>% 
   filter(is.na(volume2)) %>% 
   group_by(collection_date_in_month) %>% 
@@ -672,7 +667,8 @@ ggplot() +
   geom_label(aes(collection_date_in_month, ad_request, label = ad_request), size = 3) +
   geom_line(aes(collection_date_in_month, solitary_bottle*2, group = 1), size = 1, color = "red") +
   geom_label(aes(collection_date_in_month, solitary_bottle*2, label = solitary_bottle),fill = "#FFFF00", size = 3) +
-  scale_y_continuous(sec.axis = sec_axis(~.*2, name = "Solitary bottle")) +
+  scale_y_continuous(expand = expansion(mult = c(.01,.10)),
+                     sec.axis = sec_axis(~.*2, name = "Solitary bottle")) +
   labs(x = "Month",
        y = "Adult patient",
        title = "Adult patient with solitary blood culture bottle") +
@@ -692,15 +688,15 @@ rm(adult_request,solitary_bottle, ad_sol)
 
 # Pediatric blood culture blood volume
 p_volume <- b_volume %>% 
-  filter(age < 14, vs != "no volume") %>%
+  filter(age < 5110, vs != "no volume") %>%
   group_by(collection_date_in_month) %>% 
   mutate(bottle = n()) %>%
   group_by(collection_date_in_month,bottle,vs) %>% 
   summarise(n = n(),pect = n/bottle, .groups = "keep") %>% 
   distinct(collection_date_in_month,.keep_all = T) %>% 
   mutate(vs = case_when(vs=="Too low" ~ "Too low (<1ml)",
-                      vs=="Correct" ~ "Correct (1-6ml)",
-                      vs=="Too high" ~ "Too high (>6ml)"))
+                        vs=="Correct" ~ "Correct (1-6ml)",
+                        vs=="Too high" ~ "Too high (>6ml)"))
 
 # calculate total number of bottle
 t_bottle <- p_volume %>% 
@@ -716,16 +712,17 @@ p_volume %>%
   geom_hline(yintercept = 0.8,linetype = "dashed") +
   geom_text(aes(label = round_half_up(pect*100)), 
             position = position_dodge2(preserve = "single",width = 1),vjust = -0.2,size = 3) +
-  theme_classic() +
+  theme_bw() +
   theme(legend.title = element_blank(),
         plot.title = element_text(hjust = 0.5, face = "bold"),
         axis.text = element_text(color = "black")) +
   scale_fill_manual(values = c("Too low (<1ml)" = "#FBB917",
                                "Correct (1-6ml)" = "#41A317",
                                "Too high (>6ml)" = "#F75D59")) +
-  scale_y_continuous(labels = scales::percent,limits = c(0,1)) +
+  scale_y_continuous(expand = expansion(mult = c(.01,.10)),
+                     labels = scales::percent,limits = c(0,1)) +
   labs(x = "Month",y = "Percentage (%)", 
-       title = paste0("Pediatric (age<14 years) blood culture volume \n (n=",format(t_bottle,big.mark = ",")," bottles)"))
+       title = paste0("Pediatric (age<14 years) blood culture volume \n (Total= ",format(t_bottle,big.mark = ",")," bottles)"))
 
 rm(t_bottle,p_volume)
 ```
@@ -745,9 +742,8 @@ blank <- cbind(month, 'Bottle A' = rep(0, 12), 'Bottle B' = rep(0, 12), Total = 
   bottle_A <- bottle %>% 
     filter(result != "NA",is.na(volume2),is.na(volume1)) %>% 
     summarise('Bottle A' = n()) 
-
   bottle_B <- bottle %>% 
-    filter(volume1 != "NA", is.na(volume2), age >= 14) %>%
+    filter(volume1 != "NA",is.na(volume2),age >= 5110) %>%
     summarise('Bottle B' = n()) 
   
  missing_bv <- full_join(bottle_A, bottle_B, 
@@ -767,7 +763,7 @@ blank <- cbind(month, 'Bottle A' = rep(0, 12), 'Bottle B' = rep(0, 12), Total = 
  
 ```
 
-There were `r miss_bv` bottle(s) with empty blood culture volume field in CamLIS. This table is used to monitor number of blood culture collected per patient and impact of missing blood culture volume data. 
+There were [`r miss_bv` bottle(s)]{style="color:red;font-weight:bold;"} with empty blood culture volume field in CamLIS. This table is used to monitor number of blood culture collected per patient and impact of missing blood culture volume data. 
 
 <!-- Missing blood culture volume -->
 
@@ -779,42 +775,86 @@ if (miss_bv > 0) {
     mutate_all(~replace(., is.na(.), 0)) %>% 
     kable(align = c("l", 'c', 'c','c'),) %>% 
     kable_styling(bootstrap_options = c("condensed","bordered","striped", "hover","responsive")) %>%
-    add_header_above(c("Missing blood culture volume" = 4),bold = T,background = "#FFF8D8") %>%
+    add_header_above(c("Missing blood culture volume (include solidary bottle)" = 4),bold = T,background = "#FFF8D8") %>%
     row_spec(0,background = "#FFE4C4")
 }
 
-  rm(bottle,bottle_A,bottle_B,missing_bv,miss_bv,ad_bottle,b_volume)
+rm(bottle,bottle_A,bottle_B,missing_bv,miss_bv,b_volume)
 ```
-
-
-
 ### 5.6. Blood culture day of positivity
-Microbiology laboratories always report the day of blood culture positivity in the patient report comment. We present the common pathogens isolated. `r comment %>% filter(is.na(day_growth)) %>% count()` patient(s) had no record of the day of positivity and therefore could not be included in the analysis.
+Microbiology laboratories always report the day of blood culture positivity in the patient report comment. We present the common pathogens isolated.[`r comment %>% filter(is.na(day_growth)) %>% count()` patient(s)]{style="color:red;font-weight:bold;"} had no record of the day of positivity, therefore, it was excluded in the analysis.
 
-```{r day of positive}
-organism <- c("Escherichia coli", "Klebsiella pneumoniae", "Acinetobacter","Burkholderia pseudomallei", "Pseudomonas aeruginosa", "Non-fermenting gram negative rods", "Staphylococcus aureus", "Coagulase Negative Staphylococcus")
+```{r day of positive, fig.width= 8}
+organism <- c("Escherichia coli", "Klebsiella pneumoniae", "Acinetobacter","Burkholderia pseudomallei", "Pseudomonas aeruginosa", "Non-fermenting gram negative rods", "Staphylococcus aureus", "Coagulase Negative Staphylococcus", "Cryptococcus")
 
 day_growth <- comment %>% 
   filter(result %in% organism, !is.na(day_growth)) %>% 
-  mutate(result = factor(result, levels = organism)) %>% 
   group_by(result, day_growth) %>% 
   count(day_growth)
 
-day_growth %>% 
-  ggplot(aes(day_growth, n, fill = day_growth)) + 
-  geom_bar(stat = "identity", show.legend = F, width = 0.7) +
-  geom_text(aes(label = n), vjust = -0.1, size = 2.7) +
+
+p <- day_growth %>% 
+  ggplot(aes(day_growth, n)) + 
+  geom_bar(stat = "identity", width = 0.7, aes(fill = result, text = paste0(result, ": ", n," case(s)", "\nGrowth on day: ", day_growth))) +
+  geom_text(aes(label = n, y = n + 0.3), size = 2.7) +
   facet_wrap(~ result) +
   labs(y = "Cases", x = "Day") +
-  coord_cartesian(expand = c(0, 0), ylim = c(0, max(day_growth$n) * 1.3 )) + 
+  scale_y_continuous(expand = expansion(mult = c(.01, .10))) +
   theme_bw() +
-  theme(
+  theme(legend.position = "none",
         axis.text = element_text(color = "black"),
         strip.background = element_rect(fill = "#D5DBDB"),
-        strip.text = element_text(size = 9, face = "italic"))
+        strip.text = element_text(size = 9))
+
+p$data$result <- factor(paste0("<i>", p$data$result, "</i>"), 
+                        levels = c("<i>Escherichia coli</i>", 
+                                   "<i>Klebsiella pneumoniae</i>",
+                                   "<i>Acinetobacter</i>", 
+                                   "<i>Burkholderia pseudomallei</i>",
+                                   "<i>Pseudomonas aeruginosa</i>",
+                                   "<i>Staphylococcus aureus</i>",
+                                   "<i>Coagulase Negative Staphylococcus</i>",
+                                   "<i>Cryptococcus</i>"))
+
+
+ggplotly(p, tooltip = "text") %>%
+  config(displayModeBar = F)
+
 ```
 
-### 5.7. Critical result reporting
+### 5.7. Blood culture TurnAround Time
+TurnAround Time (TAT) is the expectation time that laboratory report result back to collectors. According to Excel extracted from CamLIS, we can report positive blood culture TAT from specimen collection to primary report. [`r TAT %>% filter(is.na(primary_report)) %>% count()` record(s)]{style="color:red;font-weight:bold;"} missed document date or time and excluded in the analysis.
+
+```{r blood TAT}
+# data
+
+TAT <- TAT %>% 
+  filter(!is.na(primary_report))
+
+record <- TAT %>% 
+  select(primary_report) %>% count()
+
+TAT %>% 
+  select(collection_date, primary_report) %>% 
+  mutate(tat_h = round_half_up(as.numeric(primary_report - collection_date))) %>%
+  plot_ly() %>% 
+  add_trace(y = ~tat_h, type = "box", 
+            boxpoints = "all",
+            jitter = 0.7,
+            pointpos = 0,
+            name = "Collection-Primary report", 
+            boxmean = TRUE,
+            color = "white",
+            marker = list(symbol = "dot", color = "black"),
+            hoverinfo = "y") %>% 
+  layout( title = list(text = paste0("Blood Culture TurnAround Time (TAT)\n","(Total=",record,")"), 
+                       x = 0.5,
+                       font = list(color = "black")),
+          yaxis = list(title = "Hour", range = list(0, 250))) %>% 
+  config(displayModeBar = F)
+```
+
+### 5.8. Blood culture critical result reporting
 Positive blood cultures are life threatening for patients and require immediate reporting. We analysed data and found [`r critical_result$p`%]{style="color:blue; font-size:20px; font-weight:bold; background-color: #FFEB14"} of critical results were recorded in CamLIS as reported.     
 
 ## 6. Notifiable and other important pathogens list 
@@ -954,30 +994,16 @@ rm(mdr, MRSA, ESBL, CRE, VRSA)
 ```
 
 
-**Tracking [blood culture]{style="color:red"} isolates by month for possible Healthcare Associated Infection (HAI)**
+**Tracking [blood culture]{style="color:red"} isolates by month for possible Healthcare Associated Infection (HAI). We filtered blood culture collection after 48 hours and positive with common bacteria associated with HAI**. [`r HAI %>% filter(is.na(HAI)) %>% count()` record(s)]{style="color:red;font-weight:bold;"} excluded due to no admission or collection date.
 
-```{r might be in hospital org}
-# Create a list of organism in notifiable
-org_in_hos <- c("Klebsiella pneumoniae",
-                "Acinetobacter", 
-                "Burkholderia cepacia",
-                "Stenotrophomonas maltophilia",
-                "Pseudomonas aeruginosa",
-                "Pseudomonas",
-                "Non-fermenting gram negative rods",
-                "Staphylococcus aureus"
-)
-
-org <- data %>% # from dataset select only notifiable organism
-  select(patient_id, sample,result, collection_date_in_month) %>% 
-  filter(sample == "Blood Culture", result %in% org_in_hos) %>% 
-  arrange(collection_date_in_month) %>% 
-  distinct(patient_id ,.keep_all = T) %>% 
+```{r HAI}
+org <- HAI %>% 
+  filter(HAI > 48, !is.na(HAI)) %>% 
   group_by(result, collection_date_in_month) %>% 
   mutate(n = sum(n())) %>% 
-  select(-patient_id, -sample) %>% 
+  select(-patient_id:-admission_date, -HAI) %>% 
   distinct(.keep_all = T) %>%
-  pivot_wider(names_from = collection_date_in_month, values_from = n) 
+  pivot_wider(names_from = collection_date_in_month, values_from = n)
 
 org <- org %>% # adding month with empty data
   add_column(!!!month_data[setdiff(names(month_data), names(org))]) %>% 
@@ -997,7 +1023,7 @@ list(org, data.frame(result = org_in_hos)) %>%
   row_spec(0, background = "#FFEB14") %>% 
   column_spec(1,italic = T)
 
-rm(org_in_hos, org, month_data)
+rm(org_in_hos, org, month_data, HAI)
 
 ```
 
@@ -1053,7 +1079,7 @@ ac <- bc_first_isolate %>%
 rm(month)
 ```
 
-There were `r bps` *Burkholderia pseudomallei* reported.
+There were [`r bps` *Burkholderia pseudomallei*]{style="color:red;font-weight:bold;"} reported.
 
 ```{r Burkholderia pseudomallei}
 if (bps > 0) {
@@ -1061,7 +1087,7 @@ if (bps > 0) {
 d <- data %>% 
   filter(result == "Burkholderia pseudomallei") %>%
   group_by(collection_date_in_month, sample) %>% 
-  summarise(n = n(),.groups = "keep")
+  summarise(n = n(),.groups = "keep") 
 
 da <- rbind(blank_data, d) %>% 
    mutate(collection_date_in_month = factor(collection_date_in_month,
@@ -1069,27 +1095,23 @@ da <- rbind(blank_data, d) %>%
   group_by(collection_date_in_month,sample) %>%
   summarise(n = sum(n),.groups = "keep") %>%  
   filter(collection_date_in_month %in% last_month$collection_date_in_month,
-         sample != "")
+         sample != "") %>% 
+  group_by(collection_date_in_month) %>% 
+  mutate(total = sum(n))
 
-p <- da %>%
+ p <- da %>%
   rename(month = collection_date_in_month) %>% 
   ggplot() +
   geom_bar(aes(month,n, fill = sample, 
                text = paste0(sample,": ", n)),
-           stat = "identity",width = 0.5) +
+               stat = "identity",width = 0.5) +
+   geom_text(aes(month, total + 0.2 , label = paste0("Total: ", total)), size = 3,
+               stat = "identity") +
   theme_bw() +
   labs(x = "Month", y = "Bps cases") +
-  #scale_y_continuous(limits = c(0,max(da$total))) +
-  scale_fill_manual(values = c("Blood Culture" = "#F7766D", # blood red
-                               "Pus" = "#D1B087", # pus yellow-gray
-                               "Urine" = "#F7A62C",
-                               "Body Fluid" = "#B3AC54",
-                               "CSF" = "#E3C5D0",
-                               "Sputum" = "#CFA937",
-                               "Stool" = "#5E615B",
-                               "Genital swab" = "#F76ACD",
-                               "Throat swab" = "#BE3737"
-                               ), limits = force)
+  scale_fill_manual(values = specimen_color, limits = force) +
+  scale_y_continuous(expand = expansion(mult = c(.01, .10)), 
+                     labels = scales::number_format(accuracy = 1))
 
 ggplotly(p, tooltip = "text" ) %>% 
   layout(legend = list(title = list(text = ""),
@@ -1099,7 +1121,6 @@ ggplotly(p, tooltip = "text" ) %>%
 
 
 }
-rm(p)
 ```
 
 <!-- Monitor AST pattern of Bps -->
@@ -1126,7 +1147,7 @@ data %>%
 
 ## 8. Salmonella 
 
-There were `r sal` *Salmonella species* reported.
+There were [`r sal` *Salmonella species*]{style="color:red;font-weight:bold;"} reported.
 
 ```{r Salmonella}
 if (sal > 0) {
@@ -1152,16 +1173,7 @@ p <- da %>%
   theme_bw() +
   labs(x = "Month", y = "Salmonella cases") +
   #scale_y_continuous(limits = c(0,max(da$total))) +
-  scale_fill_manual(values = c("Blood Culture" = "#F7766D", # blood red
-                               "Pus" = "#D1B087", # pus yellow-gray
-                               "Urine" = "#F7A62C",
-                               "Body Fluid" = "#B3AC54",
-                               "CSF" = "#E3C5D0",
-                               "Sputum" = "#CFA937",
-                               "Stool" = "#5E615B",
-                               "Genital swab" = "#F76ACD",
-                               "Throat swab" = "#BE3737"
-                               ), limits = force)
+  scale_fill_manual(values = specimen_color, limits = force)
 
 ggplotly(p, tooltip = "text" ) %>% 
   layout(legend = list(title = list(text = ""),
@@ -1171,7 +1183,6 @@ ggplotly(p, tooltip = "text" ) %>%
 
 }
 
-rm(p)
 ```
 
 ## 9. Cumulative Antibiotic Susceptibility Testing (cAST) 
