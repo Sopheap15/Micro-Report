@@ -194,7 +194,9 @@ critical_result <- data %>%
   mutate(call = str_detect(tolower(comment), "call[ed]?|phon[ed]?|dr(\\.+)?|clinician[s]?"), 
          total = n()) %>%
   filter(call == T) %>% 
-  summarise(p = round_half_up(n()*100/total)) %>% distinct() 
+  mutate(p = round_half_up(n()*100/total)) %>% 
+  select(total, p) %>% 
+  distinct() 
 
 # TAT
 TAT <- data %>% 
