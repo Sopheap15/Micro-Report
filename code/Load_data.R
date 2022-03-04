@@ -9,7 +9,7 @@ library(plotly)
 # Month -----
 month <- data.frame(collection_date_in_month = factor(c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"), levels = month.abb)) 
 
-# Create a list of organism in notifiable----
+# list of organism in notifiable----
 org_in_hos <- c("Klebsiella pneumoniae",
                 "Acinetobacter", 
                 "Burkholderia cepacia",
@@ -47,47 +47,62 @@ dic <- dic %>%
   mutate_at(vars(contains("date")), as.Date, format = "%d-%m-%Y")
 
 # Load data ----
+# Read all file in folder data
 data <- list.files("data", pattern = "^[Bb]ac(.*)?port(\\s)?.xls(x)?", full.names = T) %>% 
-  read_excel(skip = as.numeric(dic$skip), na = c("","NA"), trim_ws = T) %>% 
+  purrr::map(~read_excel(., na = c("","NA"), trim_ws = T)) %>% 
+  reduce(., bind_rows) %>% 
   clean_names() %>%
-  #remove_empty(which = "cols") %>% 
-  select(-c("ampi_peni","cephalosporins","gentamicin_synergy","novobiocin","metronidazole","oral_cephalosporins" )) %>% 
+  select(-c("ampi_peni","cephalosporins","gentamicin_synergy","novobiocin",
+            "metronidazole","oral_cephalosporins" )) %>% 
   mutate(sex = factor(sex))
-  
-# convert date
+
+# Convert date
 data <- data %>% 
-  mutate_at(vars("dob","collection_date", "admission_date"), convert_to_datetime) 
+  mutate_at(vars("dob","collection_date", "admission_date"), convert_to_datetime)
 
-
-# reject specimen
-reject_spe <- data %>% 
-  select(sample, result, comment, rejected_comment) 
-
-# age group
+# Recode specimen and wards
 data <- data %>% 
-  mutate(unit = str_extract(age, pattern = "\\D+"),
-         age = str_extract(age, pattern = "\\d+"),
-         age = case_when(unit == "y" ~ as.numeric(age)*365,
-                         unit == "m" ~ as.numeric(age)*12,
-                         TRUE ~ as.numeric(age))) %>% 
-  relocate(unit, .after = age)
+  mutate(collection_date_in_month = factor(format(collection_date,"%b"), 
+                                           levels = month.abb),
+         sample = recode(sample, "Pus aspirate" = "Pus",
+                         "Pus swab"     = "Pus",
+                         "Swab‐genital" = "Genital swab"))
 
-
-# deduplicate data and filter blank in column result
+# Filter lab name
 data <- data %>% 
-  distinct(patient_id, lab_id, collection_date, sample, result, .keep_all = T) %>% 
-  filter(!is.na(result)) 
+  filter(lab_name == ifelse(dic$short_name == "All", lab_name, dic$short_name))
 
-# Filter data base on dictionary
+# Filter date
 data <- data %>% 
   arrange(collection_date) %>% 
   filter(collection_date >= dic$start_date,
          collection_date <= ifelse(dic$end_date > max(collection_date), 
-                                   max(collection_date), dic$end_date), # filter date 
-         lab_name == ifelse(dic$short_name == "All", lab_name, dic$short_name))
+                                   max(collection_date), dic$end_date))
+
+
+# Deduplicate data
+data <- data %>% 
+  distinct(patient_id, lab_id, collection_date, sample, result, .keep_all = T)
+
+# reject specimen
+reject_spe <- data %>% 
+  select(patient_id, lab_id, collection_date ,sample, result, comment, rejected_comment) %>% 
+  distinct(patient_id, lab_id, collection_date, sample, result, .keep_all = T)
+
+
+# Age group
+data <- data %>% 
+  mutate(unit = str_extract(age, pattern = "\\D+"),
+         age = str_extract(age, pattern = "\\d+"),
+         age = case_when(unit == "y" ~ as.numeric(age)*365,
+                         unit == "m" ~ as.numeric(age)*30,
+                         TRUE ~ as.numeric(age))) %>% 
+  relocate(unit, .after = age)
+
 
 # Recode contamination organism
 data <- data %>%
+  filter(!is.na(result)) %>% 
   mutate(result = case_when(str_detect(result, "^Micrococcus") == TRUE ~ "Micrococcus",
                             str_detect(result, "^Baci(\\w+)(?!(.+)?anth(\\w+))") == TRUE ~ "Bacillus",
                             str_detect(result, "^Cory(\\w+)(?!(.+)?diph(\\w+))") == TRUE ~ "Corynebacterium",
@@ -113,17 +128,22 @@ data <- data %>%
   rename_with(as.ab, amikacin:vancomycin) %>% 
   mutate(across(where(is.rsi.eligible), as.rsi))
 
-# Recod specimen and wards
-data <- data %>% 
-  mutate(collection_date_in_month = factor(format(collection_date,"%b"), 
-                                           levels = month.abb),
-         sample = recode(sample, "Pus aspirate" = "Pus",
-                                 "Pus swab"     = "Pus",
-                                 "Swab‐genital" = "Genital swab"))
 
 # Finding last month
 last_month <- data %>% 
   distinct(collection_date_in_month)
+
+# Deduplication----
+
+# deduplicare by patient ID
+dedup_by_pid <- data %>% 
+  arrange(collection_date) %>% 
+  distinct(patient_id,.keep_all = T)
+
+# deduplicare by patient id, lab id and sample type
+dedup_by_id_stype <- data %>% 
+  arrange(collection_date) %>% 
+  distinct(patient_id, lab_id, sample,.keep_all = T)
 
 # Read and Joint ward data ----
 ward <- list.files(path = "data", pattern = "^[Dd]ic.*(\\s)?.xls(x)?", full.names = T) %>%
@@ -135,32 +155,18 @@ data <- left_join(data,ward, by = c("sample_source" = "ward_from_Camlis")) %>%
 
 rm(ward)
 
-# Deduplication----
-# deduplicare by patient ID
-dedup_by_pid <- data %>% 
-  arrange(collection_date) %>% 
-  distinct(patient_id,.keep_all = T)
-
-# deduplicare by patient id, lab id and sample type
-dedup_by_id_stype <- data %>% 
-  arrange(collection_date) %>% 
-  distinct(patient_id, lab_id, sample,.keep_all = T)
-
 # Blood culture first isolate----
 bc_first_isolate <- data %>%
-  filter(sample == "Blood Culture", !result %in% c(cont_org_list,"No growth")) %>%  
-  #filter(!result %in% c(cont_org_list,"No growth")) %>% 
+  filter(sample == "Blood Culture", !result %in% c(cont_org_list,"No growth")) %>% 
   mutate(mo = as.mo(result, info = F)) %>% 
-  #mo = as.mo(result, info = F)
   filter_first_isolate(episode_day = 30,
                        col_patient_id = "patient_id",
                        col_date = "collection_date",
-                       col_mo = "result") %>% 
+                       col_mo = "result", info = F) %>% 
   eucast_rules(col_mo = "mo", rules = "all", info = F)
 
 bc_cont_deduplicate <- data %>% # need to modify on contamination organism
   filter(sample == "Blood Culture", result %in% c(cont_org_list)) %>% 
-  #filter(result %in% c(cont_org_list)) %>% 
   distinct(lab_id, result,.keep_all = T)
 
 # Possible HAI
@@ -196,15 +202,17 @@ critical_result <- data %>%
   filter(call == T) %>% 
   mutate(p = round_half_up(n()*100/total)) %>% 
   select(total, p) %>% 
-  distinct() 
+  distinct()
 
 # TAT
 TAT <- data %>% 
   select(lab_name, patient_id, collection_date, admission_date, sample, result, comment) %>%
-  filter(!is.na(result), sample == "Blood Culture", !result  %in% c("No growth", "No significant growth found")) %>% 
-  mutate(date = str_extract(comment, pattern = "\\d+[/-]\\d+[/-]\\d+"),
-         time = str_extract(comment, pattern = "\\d+[:]\\d+")
+  filter(!is.na(result), sample == "Blood Culture", !is.na(comment), !result  %in% c("No growth")) %>%
+  distinct(patient_id, result, .keep_all = T) %>% 
+  mutate(#comment_by = str_extract(str_to_lower(comment), pattern = "resul.*by"),
+         date = str_extract(comment, pattern = "\\d+[/ ,.-]\\d+[/ ,.-]\\d+"),
+         time = str_extract(comment, pattern = "\\d+[:](\\s)?\\d+(\\s)?")
   ) %>% 
   #mutate_at(c("date", "time"), ~replace(., is.na(.), "0:0")) %>% 
-  mutate(primary_report = lubridate::dmy_hm(paste(date, time)))
+  mutate(primary_report = lubridate::dmy_hm(paste(date, time), quiet = TRUE))
 

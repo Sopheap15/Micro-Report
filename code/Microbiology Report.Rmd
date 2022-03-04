@@ -111,7 +111,7 @@ dedup_by_pid %>%
 
 Distribution of age group and gender. We accepted the range 0 to 110 years old. We have [**`r dedup_by_pid %>% filter(age>=0, age<=40150) %>% count() %>% mutate_if(is.numeric,format, big.mark = ",")`** patient(s)]{style="color:red; font-weight:bold;"}
 
-```{r age distribution,fig.height=4}
+```{r age distribution,fig.height=4, warning=FALSE}
 p <- dedup_by_pid %>%
   select(age, sex) %>% 
   mutate(sex = recode(sex, F = "Female", M = "Male")) %>% 
@@ -120,13 +120,16 @@ p <- dedup_by_pid %>%
                                 23726,29201,40150))) %>%
   group_by(age, sex) %>% count() %>% 
   ggplot() +
-  geom_bar(aes(age,n, fill = sex, text = paste0(sex,": ", n)), 
+  geom_bar(aes(age, n, fill = sex, text = paste0(sex,": ", n)), 
            stat = "identity") +
+  # geom_text(aes(age, n, label = ifelse(n > 15, n, "")), 
+  #           position = position_stack(vjust = 0.5), size =2.5) +
   labs(x = "Age", y = "Count") +
   theme_bw() +
-  theme(panel.grid.major.x = element_blank()) +
+  theme(panel.grid.major.x = element_blank(), legend.title = element_blank()) +
   scale_x_discrete(labels = c("<28d","29d-1y","1-4y","5-14y","15-24y","25-34y","35-44y","45-54y","55-64y","65-80y",">80y")) + 
   scale_y_continuous(expand = expansion(mult = c(.01, 0.10)))
+
 
 ggplotly(p, tooltip = "text") %>% 
   layout(legend = list(title = list(text = ""),
@@ -165,10 +168,11 @@ sample_by_month <- dedup_by_id_stype %>%
 # plot bar chart
 p <- sample_by_month %>% 
   group_by(collection_date_in_month) %>% 
-  count(sample) %>% 
+  count(sample) %>%
+  
   ggplot(aes(reorder(sample, n), n, fill = sample)) + 
   geom_bar(stat = "identity", aes(text = paste0(sample, ":", n))) +
-  geom_text(aes(label = n, y = n + 7), size = 2.5) +
+  geom_text(aes(label = n, y = n + (mean(n)*0.40)), size = 2.5) +
   labs(x = "", y = "") +
   coord_flip() + 
   facet_wrap(~ collection_date_in_month, ncol = 3) +
@@ -181,7 +185,8 @@ p <- sample_by_month %>%
   scale_fill_manual(values = specimen_color, limits = force)
 
 ggplotly(p, tooltip = "text") %>% 
-  config(displayModeBar = F)
+  config(displayModeBar = F,
+         locale = "km") 
   
 rm(p,sample_by_month)
 ```
@@ -192,7 +197,7 @@ For further insight, we stratified by sample sources
 ward_count <- ifelse(data %>% distinct(sample_source) %>% count() >= 15, 17, 14)
 ```
 
-```{r top12, fig.width=8, fig.height= ward_count}
+```{r spe by ward, fig.width=8, fig.height= ward_count}
 
 p <- dedup_by_id_stype %>% 
   select(sample, sample_source) %>% 
@@ -202,7 +207,7 @@ p <- dedup_by_id_stype %>%
   mutate(total = sum(n)) %>% 
   ggplot(aes(reorder(sample, n), n, fill = sample)) + 
   geom_bar(stat = "identity", aes(text = paste0(sample,": ",n))) + 
-  geom_text(aes(label = n, y = n + 4), size = 2.4) +
+  geom_text(aes(label = n, y = n + (mean(total)*0.09)), size = 2.4) +
   coord_flip() +
   facet_wrap(~ reorder(paste0(sample_source,"\n(Total = ", total,")"), -total), ncol = 3) +
   labs(x = "", y = "Count") +
@@ -228,30 +233,46 @@ ggplotly(p, tooltip = "text") %>%
 Specimen rejection
 
 ```{r specimen rejection}
+
+rstring <- "\u1798\u17b7\u1793\u1798\u17b6\u1793|\u1782\u17d2\u1798\u17b6\u1793|\u1796\u17bb\u17c6\u1798\u17b6\u1793(.*)?\u179c\u17b7\u1797\u17b6\u1782(.*)?"  #[មិន, គ្មាន] វិភាគ https://www.branah.com/unicode-convert
+
 spe <- dedup_by_id_stype %>% 
+  #distinct(patient_id, lab_id, .keep_all = T) %>% 
   group_by(sample) %>% summarise(m = n())
 
 
-reject_spe <- reject_spe %>% 
-  mutate(reject = case_when(sample == "Sputum" ~ str_extract(comment, ".*>.*10.*epi.*LPF")),
-         rejected_comment = case_when(
-           str_detect(rejected_comment,
-                      pattern = "\u1798\u17b7\u1793\u1798\u17b6\u1793(.*)?\u179c\u17b7\u1797\u17b6\u1782(.*)?") == TRUE ~ "No Sample",
-           ), #មិនមាន វិភាគ https://www.branah.com/unicode-converter
-         rejected_comment = str_to_title(rejected_comment)
+reject_com <- reject_spe %>% 
+  mutate(comment = ifelse(str_detect(comment, rstring) == TRUE, 
+                          "No Sample", comment),
+         reject = str_extract(comment, ".*>.*10.*epi.*LPF|No Sample"),
+         rejected_comment = ifelse(str_detect(rejected_comment, rstring) == TRUE,
+                                   "No Sample", rejected_comment),
+          rejected_comment = str_replace(rejected_comment, "Sugg.*$","")
+         # rejected_comment = str_extract(rejected_comment, ".*>.*10.*epi.*LPF|No Sample")
          ) %>% 
-  mutate(reject = coalesce(reject, rejected_comment)) %>% 
+  mutate(reject = coalesce(reject, rejected_comment),
+         reject = str_to_sentence(reject),
+         reject = str_replace(reject, "\\.*lpf", "LPF")) %>% 
   filter(!is.na(reject)) %>% 
+  mutate(sample = ifelse(reject == "> 10 epithelial cell/LPF", "Sputum", sample)) %>% 
   group_by(sample, reject) %>% count() 
-
-left_join(reject_spe, spe) %>% 
-  select(Specimen = sample, `Total specimen` = m, `Total reject` = n, Reasons = reject) %>% 
   
-  kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c')) %>% 
+total_spe <- reject_com %>% 
+left_join(., spe) %>% 
+  group_by(sample, m) %>% 
+  summarise(n1 = sum(n)) %>%
+  mutate(total = n1 + m) %>% 
+  select(sample, total) 
+
+left_join(reject_com, total_spe) %>% 
+  select(Specimen = sample, `Total specimen` = total, `Total reject` = n, Reasons = reject) %>% 
+  
+  kable(align = c("l", 'c', 'c','l')) %>% 
   kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive", "bordered")) %>%
   row_spec(0,background = "#FFFF1E") %>% 
   kableExtra::collapse_rows(1:2, valign = "middle")
 
+rm(rstring, spe, reject_com, total_spe)
 ```
 
 ## 4. Cerebrospinal fluid (CSF) pathogens isolated
@@ -276,16 +297,16 @@ csf <- data %>%
 
 p <- csf %>%   
   ggplot(aes(reorder(result, n), n, fill = result)) + 
-  geom_bar(stat = "identity", width = 0.2, aes(text = paste0(result,": ",n))) + 
+  geom_bar(stat = "identity", width = 0.5, aes(text = paste0(result,": ",n))) + 
   facet_wrap(~desc) +
-  geom_text(aes(label = n, y = n + .3), size = 3, hjust = -0.2) +
+  geom_text(aes(label = n, y = n + (mean(n)*0.04)), size = 3, hjust = -0.2) +
   coord_flip() +
   labs(x = "", y = "Cases") +
   theme_bw() +
   theme(axis.text.y = element_text(face = "italic", color = "black"),
         legend.position = "none", 
         panel.grid = element_blank(),
-        axis.text = element_blank(),
+        #axis.text = element_blank(),
         axis.ticks.y.right = element_blank()) +
   scale_y_continuous(expand = expansion(mult = c(.01,.10)))
 
@@ -370,16 +391,16 @@ blood_path <- bc_first_isolate %>%
 
 p <- blood_path %>%
   ggplot(aes(reorder(result, m), n, fill = result)) +
-  geom_bar(stat = "identity", width = 0.2, aes(text = paste0(result,": ", n))) + 
+  geom_bar(stat = "identity", aes(text = paste0(result,": ", n))) + 
   facet_wrap(~ desc) +
-  geom_text(aes(label = n, y = n + 0.4), size = 3) +
+  geom_text(aes(label = n, y = n + (mean(n)*0.07)), size = 3) +
   labs(x = "",y = "Cases") +
   coord_flip() +
   theme_bw() +
   theme(axis.text.y = element_text(face = "italic", color = "black"),
         legend.position = "none", 
         panel.grid = element_blank(),
-        axis.text = element_blank(),
+        #axis.text = element_blank(),
         strip.background = element_rect(fill = "#CCE8EA"),
         axis.ticks.y.right = element_blank()) +
   scale_y_continuous(expand = expansion(mult = c(.01, .10)))
@@ -814,10 +835,11 @@ day_growth <- comment %>%
 p <- day_growth %>% 
   ggplot(aes(day_growth, n)) + 
   geom_bar(stat = "identity", width = 0.7, aes(fill = result, text = paste0(result, ": ", n," case(s)", "\nGrowth on day: ", day_growth))) +
-  geom_text(aes(label = n, y = n + 0.3), size = 2.7) +
+  geom_text(aes(label = n, y = n + (mean(n)*0.15)), size = 2.7) +
   facet_wrap(~ result) +
   labs(y = "Cases", x = "Day") +
-  scale_y_continuous(expand = expansion(mult = c(.01, .10))) +
+  scale_y_continuous(expand = expansion(mult = c(.01, .10)), 
+                     labels = scales::label_number(accuracy = 1)) +
   theme_bw() +
   theme(legend.position = "none",
         axis.text = element_text(color = "black"),
@@ -855,7 +877,7 @@ record <- TAT %>%
 
 TAT %>% 
   select(collection_date, primary_report) %>% 
-  mutate(tat_h = round_half_up(as.numeric(primary_report - collection_date))) %>%
+  mutate(tat_h = round_half_up(as.numeric(primary_report - collection_date))) %>% 
   plot_ly() %>% 
   add_trace(y = ~tat_h, type = "box", 
             boxpoints = "all",
@@ -877,7 +899,8 @@ TAT %>%
 
 ### 5.8. Blood culture critical result reporting
 
-Positive blood cultures are life threatening for patients and require immediate reporting. We analysed data and found [`r critical_result$p`% (n = `r critical_result$total`)]{style="color:blue; font-size:16px; font-weight:bold; background-color: #FFEB14"} of critical results were recorded in CamLIS as reported.
+Positive blood cultures are life threatening for patients and require immediate reporting.\
+We analysed data and found [`r critical_result$p`%]{style="color:blue; font-size:16px; font-weight:bold; background-color: #FFEB14"} (`r critical_result$total` patient(s)) of critical results were recorded in CamLIS as reported.
 
 ## 6. Notifiable and other important pathogens list
 
@@ -1126,7 +1149,7 @@ da <- rbind(blank_data, d) %>%
   geom_bar(aes(month,n, fill = sample, 
                text = paste0(sample,": ", n)),
                stat = "identity",width = 0.5) +
-   geom_text(aes(month, total + 0.2 , label = paste0("Total: ", total)), size = 3,
+   geom_text(aes(month, total + mean(total)*0.04 , label = paste0("Total: ", total)), size = 3,
                stat = "identity") +
   theme_bw() +
   labs(x = "Month", y = "Bps cases") +
@@ -1146,20 +1169,21 @@ ggplotly(p, tooltip = "text" ) %>%
 
 <!-- Monitor AST pattern of Bps -->
 
-```{r bps AMR,results='asis', eval=FALSE}
+```{r bps AMR, results='asis'}
 if (bps > 0) {
 data %>% 
-  filter(mo == "B_BRKHL_PSDM") %>% 
-  select(mo,AMC,CAZ,MEM,TMP,GEN) %>% 
-  bug_drug_combinations() %>% 
-  rename(Organism = mo,Antibiotic = ab, Total = total) %>% 
+  filter(result %in% "Burkholderia pseudomallei") %>% 
+  select(result, AMC,CAZ,MEM,TMP,GEN) %>%
+  mutate(mo = as.mo(result, info = F)) %>% 
+  bug_drug_combinations() %>%
+  rename(Organism = mo, Antibiotic = ab, Total = total) %>% 
   mutate(Antibiotic = ab_name(Antibiotic)) %>%
   select(Antibiotic,S,I,R,Total) %>% 
   kable(align = c("l", 'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
-  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive"), position = "left") %>% 
   add_header_above(c("Antibiotic Susceptibility Patterns" = 5), bold = T,background = "#FFA500") %>% 
   footnote("S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
-   row_spec(0, background =  "#FFE4E1") %>% 
+  row_spec(0, background =  "#FFE4E1") %>% 
   column_spec(2:5, width = "5em") %>% 
   column_spec(2,color = "#6698FF",bold = T) %>%
   column_spec(4,color = "#F88017",bold = T)
