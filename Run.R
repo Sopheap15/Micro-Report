@@ -1,15 +1,2 @@
-# Load data (Shortcut CTR|Command + A + Enter)----
-setwd()
-rm(list = ls())
-source("code/Load_data.R",knitr::knit_global())
-
-# Render report
-rmarkdown::render("code/Microbiology Report.Rmd",
-                    output_file = str_glue("Outputs/{dic$short_name}_Microbiology_Report_{Sys.Date()}.html"), quiet = T)
-
-
-
-
-
-
-
+Script started on Wed Mar  9 17:15:54 2022
+[1m[7m%[27m[1m[0m                                                                                        [0m[27m[24m[Jsopheap@Sopheaps-13-MacBook-Pro Microbiology Report 2022 % [K[?2004h

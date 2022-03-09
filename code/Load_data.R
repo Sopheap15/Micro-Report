@@ -48,12 +48,17 @@ dic <- dic %>%
 
 # Load data ----
 # Read all file in folder data
-data <- list.files("data", pattern = "^[Bb]ac(.*)?port(\\s)?.xls(x)?", full.names = T) %>% 
-  purrr::map(~read_excel(., na = c("","NA"), trim_ws = T)) %>% 
-  reduce(., bind_rows) %>% 
+read_file <- function(path){
+  path %>% 
+  read_excel(na = c("","NA"), trim_ws = T) %>% 
   clean_names() %>%
-  select(-c("ampi_peni","cephalosporins","gentamicin_synergy","novobiocin",
-            "metronidazole","oral_cephalosporins" )) %>% 
+  select(-any_of(c("ampi_peni","cephalosporins","gentamicin_synergy","novobiocin",
+            "metronidazole","oral_cephalosporins" )))
+}
+ 
+data <- list.files(path = "data", pattern = "^[Bb]ac(.*)?port(.+)?.xls(x)?", full.names = T) %>% 
+purrr::map(~read_file(.)) %>% 
+  reduce(., bind_rows) %>% 
   mutate(sex = factor(sex))
 
 # Convert date
@@ -133,6 +138,16 @@ data <- data %>%
 last_month <- data %>% 
   distinct(collection_date_in_month)
 
+# Read and Joint ward data ----
+ward <- list.files(path = "data", pattern = "^[Dd]ic.*(\\s)?.xls(x)?", full.names = T) %>%
+  read_excel(sheet = "ward", col_names = T, trim_ws = T)
+
+data <- left_join(data,ward, by = c("sample_source" = "ward_from_Camlis")) %>% 
+  mutate(sample_source = coalesce(new_ward_in_english, sample_source)) %>%
+  select(-new_ward_in_english,-Comment)
+
+rm(ward)
+
 # Deduplication----
 
 # deduplicare by patient ID
@@ -145,15 +160,6 @@ dedup_by_id_stype <- data %>%
   arrange(collection_date) %>% 
   distinct(patient_id, lab_id, sample,.keep_all = T)
 
-# Read and Joint ward data ----
-ward <- list.files(path = "data", pattern = "^[Dd]ic.*(\\s)?.xls(x)?", full.names = T) %>%
-  read_excel(sheet = "ward", col_names = T, trim_ws = T)
-
-data <- left_join(data,ward, by = c("sample_source" = "ward_from_Camlis")) %>% 
-  mutate(sample_source = coalesce(new_ward_in_english, sample_source)) %>%
-  select(-new_ward_in_english,-Comment)
-
-rm(ward)
 
 # Blood culture first isolate----
 bc_first_isolate <- data %>%
@@ -209,10 +215,15 @@ TAT <- data %>%
   select(lab_name, patient_id, collection_date, admission_date, sample, result, comment) %>%
   filter(!is.na(result), sample == "Blood Culture", !is.na(comment), !result  %in% c("No growth")) %>%
   distinct(patient_id, result, .keep_all = T) %>% 
-  mutate(#comment_by = str_extract(str_to_lower(comment), pattern = "resul.*by"),
-         date = str_extract(comment, pattern = "\\d+[/ ,.-]\\d+[/ ,.-]\\d+"),
-         time = str_extract(comment, pattern = "\\d+[:](\\s)?\\d+(\\s)?")
+  mutate(comment_by = str_extract(str_to_lower(comment), 
+                                  pattern = "(\\.*)?(call[ed]?|phon[ed]?)(.*)"),
+         comment_by = str_replace(comment_by, 
+                                  pattern = "(die[d]|dead) (on)? \\d+[/ ,.-]\\d+[/ ,.-]\\d+",""),
+         date = str_extract(comment_by, pattern = "\\d+[/ ,.-]\\d+[/ ,.-]\\d+"),
+         time = str_extract(comment_by, pattern = "\\d{1,}[: .](\\s)?\\d{1,}(\\s)?([AaPp][Mm])?")
   ) %>% 
   #mutate_at(c("date", "time"), ~replace(., is.na(.), "0:0")) %>% 
   mutate(primary_report = lubridate::dmy_hm(paste(date, time), quiet = TRUE))
+
+
 

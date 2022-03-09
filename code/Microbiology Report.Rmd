@@ -6,15 +6,12 @@ output:
     toc_float:  true
     toc_depth: 3
     theme: cerulean
+editor_options: 
+  chunk_output_type: console
 ---
 
-```{=html}
-<style>
-.table-hover > tbody > tr:hover { 
-  background-color: #f4f442;
-}
-</style>
-```
+<!-- Version 3 update on 9/03/22 -->
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F,
                       message = F,
@@ -25,7 +22,11 @@ knitr::opts_chunk$set(echo = F,
                       collapse = T)
 ```
 
-<!-- Version 3 update on 17/02/22 -->
+```{css}
+.table-hover > tbody > tr:hover { 
+  background-color: #f4f442;
+}
+```
 
 ## 1. Introduction {.tabset}
 
@@ -33,7 +34,7 @@ knitr::opts_chunk$set(echo = F,
 
 Siem Reap, Takeo, Battambang and Kampong Cham clinical microbiology laboratories based at Provincial Referral Hospitals (250-300 beds), receive technical and supply support such as long term mentoring, culture media and diagnostic reagents from the Diagnostic Microbiology Development Program ([DMDP](http://dmdp.org)).
 
-Culture media including blood culture bottles, agar plates and biochemical tubed media are produced centrally at the Central Media Making Laboratory [(CMML)](https://www.uhs.edu.kh/cmml/) at the University of Health Sciences, Phnom Penh. CMML, ISO 9001:2015 certified, performs media quality control before distribution to the clinical laboratories.
+Culture media including blood culture bottles, agar plates and biochemical tubed media are produced centrally at the Central Media Making Laboratory (CMML) at the University of Health Sciences, Phnom Penh. CMML, ISO 9001:2015 certified, performs media quality control before distribution to the clinical laboratories.
 
 ### Laboratory procedures
 
@@ -162,14 +163,12 @@ specimen_color <- c("Blood Culture" = "#F7766D", # blood red
 # fig.height=8
 # sample by month from site
 sample_by_month <- dedup_by_id_stype %>% 
-  select(collection_date_in_month, sample)
-
+  select(collection_date_in_month, sample) %>% 
+  group_by(collection_date_in_month) %>% 
+  count(sample) 
 
 # plot bar chart
 p <- sample_by_month %>% 
-  group_by(collection_date_in_month) %>% 
-  count(sample) %>%
-  
   ggplot(aes(reorder(sample, n), n, fill = sample)) + 
   geom_bar(stat = "identity", aes(text = paste0(sample, ":", n))) +
   geom_text(aes(label = n, y = n + (mean(n)*0.40)), size = 2.5) +
@@ -864,7 +863,7 @@ ggplotly(p, tooltip = "text") %>%
 
 ### 5.7. Blood culture TurnAround Time
 
-TurnAround Time (TAT) is the expectation time that laboratory report result back to collectors. According to Excel extracted from CamLIS, we can report positive blood culture TAT from specimen collection to primary report. [`r TAT %>% filter(is.na(primary_report)) %>% count()` record(s)]{style="color:red;font-weight:bold;"} missed document date or time and excluded in the analysis.
+TurnAround Time (TAT) is the expectation time that laboratory report result back to collectors. According to Excel extracted from CamLIS, we can report positive blood culture TAT from specimen collection to Notify Gram stain. [`r TAT %>% filter(is.na(primary_report)) %>% count()` record(s)]{style="color:red;font-weight:bold;"} missed document date or time and excluded in the analysis.
 
 ```{r blood TAT}
 # data
@@ -1038,7 +1037,7 @@ rbind(ESBL, CRE, MRSA, VRSA) %>%
 rm(mdr, MRSA, ESBL, CRE, VRSA)
 ```
 
-**Tracking [blood culture]{style="color:red"} isolates by month for possible Healthcare Associated Infection (HAI). We filtered blood culture collection after 48 hours and positive with common bacteria associated with HAI**. [`r HAI %>% filter(is.na(HAI)) %>% count()` record(s)]{style="color:red;font-weight:bold;"} excluded due to no admission or collection date.
+**Tracking [blood culture]{style="color:red"} isolates by month for possible Healthcare Associated Infection (HAI)**. We filtered blood culture collection date after 48 hours of admission with common bacteria associated with HAI. [`r HAI %>% filter(is.na(HAI)) %>% count()` record(s)]{style="color:red;font-weight:bold;"} excluded due to no admission or collection date.
 
 ```{r HAI}
 org <- HAI %>% 
