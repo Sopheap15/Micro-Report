@@ -7,7 +7,7 @@ output:
     toc_depth: 3
     theme: cerulean
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 <!-- Version 3 update on 9/03/22 -->
@@ -105,6 +105,7 @@ dedup_by_pid %>%
             line = list(color = 'white', width = 4)
             )) %>%
    config(displayModeBar = F)
+
 
 ```
 
@@ -233,28 +234,32 @@ Specimen rejection
 
 ```{r specimen rejection}
 
-rstring <- "\u1798\u17b7\u1793\u1798\u17b6\u1793|\u1782\u17d2\u1798\u17b6\u1793|\u1796\u17bb\u17c6\u1798\u17b6\u1793(.*)?\u179c\u17b7\u1797\u17b6\u1782(.*)?"  #[មិន, គ្មាន] វិភាគ https://www.branah.com/unicode-convert
+no_sample <- "(\u179c\u17b7\u1797\u17b6\u1782|\u179f\u17c6\u178e\u17b6\u1780)?.*(\u1796\u17bb\u17c6\u1798\u17b6\u1793|\u1782\u17d2\u1798\u17b6\u1793|\u1798\u17b7\u1793\u1798\u17b6\u1793)(?!\u17a2\u178f\u17d2\u178f).*(\u179c\u17b7\u1797\u17b6\u1782|\u179f\u17c6\u178e\u17b6\u1780)?"
+
+no_label <- "(\u179c\u17b7\u1797\u17b6\u1782|\u179f\u17c6\u178e\u17b6\u1780)?.*(\u1796\u17bb\u17c6\u1798\u17b6\u1793|\u1782\u17d2\u1798\u17b6\u1793|\u1798\u17b7\u1793\u1798\u17b6\u1793)(?=\u17a2\u178f\u17d2\u178f).*(\u179c\u17b7\u1797\u17b6\u1782|\u179f\u17c6\u178e\u17b6\u1780)?"
+
 
 spe <- dedup_by_id_stype %>% 
-  #distinct(patient_id, lab_id, .keep_all = T) %>% 
   group_by(sample) %>% summarise(m = n())
 
 
-reject_com <- reject_spe %>% 
-  mutate(comment = ifelse(str_detect(comment, rstring) == TRUE, 
-                          "No Sample", comment),
-         reject = str_extract(comment, ".*>.*10.*epi.*LPF|No Sample"),
-         rejected_comment = ifelse(str_detect(rejected_comment, rstring) == TRUE,
-                                   "No Sample", rejected_comment),
-          rejected_comment = str_replace(rejected_comment, "Sugg.*$","")
-         # rejected_comment = str_extract(rejected_comment, ".*>.*10.*epi.*LPF|No Sample")
-         ) %>% 
+reject_com <- reject_spe %>% # change word to no sample or no label
+  mutate_at(vars(comment, rejected_comment), ~str_replace_all(., pattern = "\u200B","")) %>% 
+  mutate_at(vars(comment, rejected_comment), ~ifelse(str_detect(., no_sample) == TRUE,
+                                                     "no sample", .)) %>%
+  mutate_at(vars(comment, rejected_comment), ~ifelse(str_detect(., no_label) == TRUE,
+                                                     "no label", .))
+
+reject_com <- reject_com %>% 
+  mutate(reject = str_extract(str_to_lower(comment), ".*>.*10.*epi.*lpf|no sample| no label"),
+        rejected_comment = str_replace(rejected_comment, "Sugg.*$","")
+        ) %>% 
   mutate(reject = coalesce(reject, rejected_comment),
          reject = str_to_sentence(reject),
          reject = str_replace(reject, "\\.*lpf", "LPF")) %>% 
   filter(!is.na(reject)) %>% 
-  mutate(sample = ifelse(reject == "> 10 epithelial cell/LPF", "Sputum", sample)) %>% 
-  group_by(sample, reject) %>% count() 
+  mutate(sample = ifelse(reject == "> 10 epithelial cell/LPF", "Sputum", sample)) %>%
+  group_by(sample, reject) %>% count()
   
 total_spe <- reject_com %>% 
 left_join(., spe) %>% 
@@ -271,7 +276,7 @@ left_join(reject_com, total_spe) %>%
   row_spec(0,background = "#FFFF1E") %>% 
   kableExtra::collapse_rows(1:2, valign = "middle")
 
-rm(rstring, spe, reject_com, total_spe)
+rm(spe, reject_com, total_spe)
 ```
 
 ## 4. Cerebrospinal fluid (CSF) pathogens isolated
@@ -305,7 +310,6 @@ p <- csf %>%
   theme(axis.text.y = element_text(face = "italic", color = "black"),
         legend.position = "none", 
         panel.grid = element_blank(),
-        #axis.text = element_blank(),
         axis.ticks.y.right = element_blank()) +
   scale_y_continuous(expand = expansion(mult = c(.01,.10)))
 
@@ -878,14 +882,15 @@ TAT %>%
   select(collection_date, primary_report) %>% 
   mutate(tat_h = round_half_up(as.numeric(primary_report - collection_date))) %>% 
   plot_ly() %>% 
-  add_trace(y = ~tat_h, type = "box", 
+  add_boxplot(y = ~tat_h, 
             boxpoints = "all",
             jitter = 0.7,
             pointpos = 0,
             name = "", 
             boxmean = TRUE,
-            color = "white",
-            marker = list(symbol = "dot", color = "black"),
+            fillcolor = "pink",
+            #line = list(color = 'blue'),
+            marker = list(symbol = "dot", color = "purple"),
             hoverinfo = "y") %>% 
   layout( title = list(text = paste0("Blood Culture TurnAround Time (TAT)\n","(Total=",record,")"), 
                        x = 0.5,
@@ -899,7 +904,7 @@ TAT %>%
 ### 5.8. Blood culture critical result reporting
 
 Positive blood cultures are life threatening for patients and require immediate reporting.\
-We analysed data and found [`r critical_result$p`%]{style="color:blue; font-size:16px; font-weight:bold; background-color: #FFEB14"} (`r critical_result$total` patient(s)) of critical results were recorded in CamLIS as reported.
+We analysed data and found [`r critical_result$p`%]{style="color:blue; font-size:16px; font-weight:bold; background-color: #FFEB14"} (`r critical_result$total` patients) of critical results were recorded in CamLIS as reported.
 
 ## 6. Notifiable and other important pathogens list
 

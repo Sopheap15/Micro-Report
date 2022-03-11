@@ -56,8 +56,11 @@ read_file <- function(path){
             "metronidazole","oral_cephalosporins" )))
 }
  
-data <- list.files(path = "data", pattern = "^[Bb]ac(.*)?port(.+)?.xls(x)?", full.names = T) %>% 
-purrr::map(~read_file(.)) %>% 
+data <- list.files(path = "data", 
+                   pattern = "[Bb]ac(.*)?port(.+)?.xls(x)?", 
+                   full.names = T) %>% 
+  purrr::discard(file_name,.p = ~stringr::str_detect(.,"~")) %>% 
+  purrr::map(~read_file(.)) %>% 
   reduce(., bind_rows) %>% 
   mutate(sex = factor(sex))
 
@@ -220,7 +223,7 @@ TAT <- data %>%
          comment_by = str_replace(comment_by, 
                                   pattern = "(die[d]|dead) (on)? \\d+[/ ,.-]\\d+[/ ,.-]\\d+",""),
          date = str_extract(comment_by, pattern = "\\d+[/ ,.-]\\d+[/ ,.-]\\d+"),
-         time = str_extract(comment_by, pattern = "\\d{1,}[: .](\\s)?\\d{1,}(\\s)?([AaPp][Mm])?")
+         time = str_extract(comment_by, pattern = "\\d{1,}[: .;](\\s)?\\d{1,}(\\s)?([AaPp][Mm])?")
   ) %>% 
   #mutate_at(c("date", "time"), ~replace(., is.na(.), "0:0")) %>% 
   mutate(primary_report = lubridate::dmy_hm(paste(date, time), quiet = TRUE))
