@@ -172,7 +172,7 @@ bc_first_isolate <- data %>%
                        col_patient_id = "patient_id",
                        col_date = "collection_date",
                        col_mo = "result", info = F) %>% 
-  eucast_rules(col_mo = "mo", rules = "all", info = F)
+  eucast_rules(col_mo = "mo", rules = "all", version_expertrules = 3.3, info = F)
 
 bc_cont_deduplicate <- data %>% # need to modify on contamination organism
   filter(sample == "Blood Culture", result %in% c(cont_org_list)) %>% 

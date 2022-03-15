@@ -234,9 +234,9 @@ Specimen rejection
 
 ```{r specimen rejection}
 
-no_sample <- "(\u179c\u17b7\u1797\u17b6\u1782|\u179f\u17c6\u178e\u17b6\u1780)?.*(\u1796\u17bb\u17c6\u1798\u17b6\u1793|\u1782\u17d2\u1798\u17b6\u1793|\u1798\u17b7\u1793\u1798\u17b6\u1793)(?!\u17a2\u178f\u17d2\u178f).*(\u179c\u17b7\u1797\u17b6\u1782|\u179f\u17c6\u178e\u17b6\u1780)?"
+no_sample <- "(\u179c\u17b7\u1797\u17b6\u1782|\u179f\u17c6\u178e\u17b6\u1780)?.*(\u1796\u17bb\u17c6\u1798\u17b6\u1793|\u1782\u17d2\u1798\u17b6\u1793|\u1798\u17b7\u1793\u1798\u17b6\u1793)(?!(\u17a2\u178f\u17d2\u178f|\u1796.*\u1798\u17b6\u1793)).*(\u179c\u17b7\u1797\u17b6\u1782|\u179f\u17c6\u178e\u17b6\u1780)?"
 
-no_label <- "(\u179c\u17b7\u1797\u17b6\u1782|\u179f\u17c6\u178e\u17b6\u1780)?.*(\u1796\u17bb\u17c6\u1798\u17b6\u1793|\u1782\u17d2\u1798\u17b6\u1793|\u1798\u17b7\u1793\u1798\u17b6\u1793)(?=\u17a2\u178f\u17d2\u178f).*(\u179c\u17b7\u1797\u17b6\u1782|\u179f\u17c6\u178e\u17b6\u1780)?"
+no_label <- "(\u179c\u17b7\u1797\u17b6\u1782|\u179f\u17c6\u178e\u17b6\u1780)?.*(\u1796\u17bb\u17c6\u1798\u17b6\u1793|\u1782\u17d2\u1798\u17b6\u1793|\u1798\u17b7\u1793\u1798\u17b6\u1793)(?=(\u17a2\u178f\u17d2\u178f|\u1796.*\u1798\u17b6\u1793)).*(\u179c\u17b7\u1797\u17b6\u1782|\u179f\u17c6\u178e\u17b6\u1780)?"
 
 
 spe <- dedup_by_id_stype %>% 
@@ -251,7 +251,7 @@ reject_com <- reject_spe %>% # change word to no sample or no label
                                                      "no label", .))
 
 reject_com <- reject_com %>% 
-  mutate(reject = str_extract(str_to_lower(comment), ".*>.*10.*epi.*lpf|no sample| no label"),
+  mutate(reject = str_extract(str_to_lower(comment), ".*>.*10.*epi.*lpf|no sample|no label"),
         rejected_comment = str_replace(rejected_comment, "Sugg.*$","")
         ) %>% 
   mutate(reject = coalesce(reject, rejected_comment),
@@ -780,17 +780,20 @@ blank <- cbind(month, 'Bottle A' = rep(0, 12), 'Bottle B' = rep(0, 12), Total = 
     select(collection_date_in_month,age,result,volume1,volume2)
   
   bottle_A <- bottle %>% 
-    filter(result != "NA",is.na(volume2),is.na(volume1)) %>% 
+    filter(!is.na(result),is.na(volume1)) %>% 
     summarise('Bottle A' = n()) 
+  
   bottle_B <- bottle %>% 
-    filter(volume1 != "NA",is.na(volume2),age >= 5110) %>%
+    filter(!is.na(result), is.na(volume1), is.na(volume2),age >= 5110) %>%
     summarise('Bottle B' = n()) 
+  
   
  missing_bv <- full_join(bottle_A, bottle_B, 
                          by = "collection_date_in_month") %>% 
     list(., blank) %>% 
-   reduce(full_join, by = "collection_date_in_month") %>% 
-   mutate_all( ~replace(., is.na(.), 0)) %>% 
+   reduce(full_join, by = "collection_date_in_month") %>%
+   mutate_if(is.numeric, ~replace(., is.na(.), 0)) %>% 
+   #mutate_all( ~replace(., is.na(.), 0)) %>% 
    mutate('Bottle A' = `Bottle A.x` + `Bottle A.y`,
           'Bottle B' = `Bottle B.x` + `Bottle B.y`,
           Total = `Bottle A` + `Bottle B`) %>% 
@@ -808,23 +811,37 @@ There were [`r miss_bv` bottle(s)]{style="color:red;font-weight:bold;"} with emp
 <!-- Missing blood culture volume -->
 
 ```{r  missing blood culture volume}
-if (miss_bv > 0) {
+#if (miss_bv > 0) {
   missing_bv %>% 
     rename(Month = collection_date_in_month) %>% 
     arrange(Month) %>% 
-    mutate_all(~replace(., is.na(.), 0)) %>% 
+    mutate_if(is.numeric, ~replace(., is.na(.), 0)) %>% 
+    #mutate_all(~replace(., is.na(.), 0)) %>% 
     kable(align = c("l", 'c', 'c','c'),) %>% 
     kable_styling(bootstrap_options = c("condensed","bordered","striped", "hover","responsive")) %>%
-    add_header_above(c("Missing blood culture volume (include solidary bottle)" = 4),bold = T,background = "#FFF8D8") %>%
+    add_header_above(c("Missing blood culture volume" = 4),bold = T,background = "#FFF8D8") %>%
     row_spec(0,background = "#FFE4C4")
-}
+#}
 
-rm(bottle,bottle_A,bottle_B,missing_bv,miss_bv,b_volume)
+rm(bottle,bottle_A,bottle_B,missing_bv,miss_bv,b_volume, blank)
 ```
 
 ### 5.6. Blood culture day of positivity
 
-Microbiology laboratories always report the day of blood culture positivity in the patient report comment. We present the common pathogens isolated.[`r comment %>% filter(is.na(day_growth)) %>% count()` patient(s)]{style="color:red;font-weight:bold;"} had no record of the day of positivity, therefore, it was excluded in the analysis.
+Microbiology laboratories always report the day of blood culture positivity in the patient report comment. We present the common pathogens isolated.
+```{r comment="#", results='asis'}
+
+record <- comment %>% filter(is.na(day_growth)) %>% count()
+
+if (record > 0) {
+cat(paste("[", record,"patient]{style='color:red;font-weight:bold;'}","had no record of the day of positivity, therefore, it was excluded in the analysis."))
+  
+}
+
+rm(record)
+
+```
+<!-- [`r comment %>% filter(is.na(day_growth)) %>% count()` patient(s)]{style="color:red;font-weight:bold;"} had no record of the day of positivity, therefore, it was excluded in the analysis. -->
 
 ```{r day of positive, fig.width= 8}
 organism <- c("Escherichia coli", "Klebsiella pneumoniae", "Acinetobacter","Burkholderia pseudomallei", "Pseudomonas aeruginosa", "Non-fermenting gram negative rods", "Staphylococcus aureus", "Coagulase Negative Staphylococcus", "Cryptococcus")
@@ -867,7 +884,18 @@ ggplotly(p, tooltip = "text") %>%
 
 ### 5.7. Blood culture TurnAround Time
 
-TurnAround Time (TAT) is the expectation time that laboratory report result back to collectors. According to Excel extracted from CamLIS, we can report positive blood culture TAT from specimen collection to Notify Gram stain. [`r TAT %>% filter(is.na(primary_report)) %>% count()` record(s)]{style="color:red;font-weight:bold;"} missed document date or time and excluded in the analysis.
+TurnAround Time (TAT) is the expectation time that laboratory report result back to collectors. According to Excel extracted from CamLIS, we can report positive blood culture TAT from specimen collection to Notify Gram stain.
+
+```{r comment="#", results='asis'}
+
+record <-  TAT %>% filter(is.na(primary_report)) %>% count()
+
+if (record > 0) {
+cat(paste("[", record,"records]{style='color:red;font-weight:bold;'}","missed document date or time and excluded in the analysis."))
+  
+}
+rm(record)
+```
 
 ```{r blood TAT}
 # data
@@ -904,7 +932,7 @@ TAT %>%
 ### 5.8. Blood culture critical result reporting
 
 Positive blood cultures are life threatening for patients and require immediate reporting.\
-We analysed data and found [`r critical_result$p`%]{style="color:blue; font-size:16px; font-weight:bold; background-color: #FFEB14"} (`r critical_result$total` patients) of critical results were recorded in CamLIS as reported.
+We analysed data and found [`r critical_result$p`%]{style="color:blue; font-size:16px; font-weight:bold; background-color: #FFEB14"} of `r critical_result$total` critical results were recorded in CamLIS as reported.
 
 ## 6. Notifiable and other important pathogens list
 
@@ -944,7 +972,7 @@ org <- data %>% # from data set select only notifiable organism
   
 org <- org %>% # adding month with empty data
   add_column(!!!month_data[setdiff(names(month_data), names(org))]) %>% 
-  mutate_if(is.factor, as.character) %>% 
+  #mutate_if(is.factor, as.character) %>% 
   mutate_all(., ~str_replace(., pattern = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec", '0')) %>% 
   select(result, order(factor(names(.), levels = month.abb)))
 
@@ -1025,7 +1053,7 @@ CRE <- mdr %>% # filter E.coli and K.pneumoniae and Imipenem and Meropenem
 rbind(ESBL, CRE, MRSA, VRSA) %>% 
   pivot_wider(names_from = "collection_date_in_month",values_from = "n") %>% 
   add_column(!!!month_data[setdiff(names(month_data), names(.))]) %>% 
-  mutate_if(is.factor, as.character) %>% 
+  #mutate_if(is.factor, as.character) %>% 
   mutate_all(., ~ str_replace(., pattern = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec", '0')) %>% 
   select(result, MDR, order(factor(names(.), levels = month.abb))) %>% 
   mutate_all( ~replace(., is.na(.), 0)) %>% 
@@ -1042,7 +1070,18 @@ rbind(ESBL, CRE, MRSA, VRSA) %>%
 rm(mdr, MRSA, ESBL, CRE, VRSA)
 ```
 
-**Tracking [blood culture]{style="color:red"} isolates by month for possible Healthcare Associated Infection (HAI)**. We filtered blood culture collection date after 48 hours of admission with common bacteria associated with HAI. [`r HAI %>% filter(is.na(HAI)) %>% count()` record(s)]{style="color:red;font-weight:bold;"} excluded due to no admission or collection date.
+**Tracking [blood culture]{style="color:red"} isolates by month for possible Healthcare Associated Infection (HAI)**. We filtered blood culture collection date after 48 hours of admission with common bacteria associated with HAI.
+```{r comment="#", results='asis'}
+
+record <-  HAI %>% filter(is.na(HAI)) %>% count()
+
+if (record > 0) {
+cat(paste("[", record,"records]{style='color:red;font-weight:bold;'}"," excluded due to no admission or collection date."))
+  
+}
+rm(record)
+```
+
 
 ```{r HAI}
 org <- HAI %>% 
@@ -1062,7 +1101,7 @@ org <- org %>% # adding month with empty data
 list(org, data.frame(result = org_in_hos)) %>% 
   reduce(full_join, by = "result") %>% 
   mutate_all(~replace(., is.na(.), 0)) %>% 
-  mutate_if(is.character, as.numeric) %>% 
+  #mutate_if(is.character, as.numeric) %>% 
   mutate(Total = rowSums(across(where(is.numeric)))) %>% 
   arrange(-Total) %>%
   rename("Organism" = result) %>% 
@@ -1236,9 +1275,10 @@ ggplotly(p, tooltip = "text" ) %>%
 
 ## 9. Cumulative Antibiotic Susceptibility Testing (cAST)
 
-We filter [blood culture]{style="color:red"} by first pathogen isolated in an period of 30 days and apply all EUCAST expert rules for Intrinsic Resistance and Unusual Phenotypes (AMR v3.2, 2020) before analyzing antibiotic susceptibility patterns. We produced cAST for pathogens included in the [GLASS](https://www.who.int/initiatives/glass) priority pathogen list.
+We filter [blood culture]{style="color:red"} by first pathogen isolated in an period of 30 days and apply all EUCAST expert rules for Intrinsic Resistance and Unusual Phenotypes (AMR v3.3, 2021) before analyzing antibiotic susceptibility patterns. We produced cAST for pathogens included in the [GLASS](https://www.who.int/initiatives/glass) priority pathogen list.
 
 ### 9.1. *Staphylococcus aureus*
+There were [`r sau` *Staphylococcus aureus*]{style="color:red;font-weight:bold;"} reported.
 
 ```{r S.aureus cAST}
 if (sau > 0) {
@@ -1263,6 +1303,7 @@ rm(sau)
 ```
 
 ### 9.2. *Escherichia coli*
+There were [`r eco` *Escherichia coli*]{style="color:red;font-weight:bold;"} reported.
 
 ```{r E.coli cAST}
 if (eco > 0) {
@@ -1287,6 +1328,8 @@ rm(eco)
 
 ### 9.3. *Klebsiella pneumoniae*
 
+There were [`r kpn` *Klebsiella pneumoniae*]{style="color:red;font-weight:bold;"} reported.
+
 ```{r K.pneumoniae cAST}
 if (kpn > 0) {
 bc_first_isolate %>% 
@@ -1309,6 +1352,7 @@ rm(kpn)
 ```
 
 ### 9.4. *Pseudomonas aeruginosa*
+There were [`r pse` *Pseudomonas aeruginosa*]{style="color:red;font-weight:bold;"} reported.
 
 ```{r P.aeruginosa cAST}
 if (pse > 0) {
@@ -1332,6 +1376,8 @@ rm(pse)
 ```
 
 ### 9.5. *Acinetobacter*
+There were [`r ac` *Acinetobacter*]{style="color:red;font-weight:bold;"} reported.
+
 
 ```{r Acinetobacter cAST}
 if (ac > 0) {
