@@ -1,13 +1,12 @@
 ---
 title: "<center><p style='font-weight:bold;'>`r dic$hospital_name` <br> Microbiology Laboratory Report<br>`r format(dic$start_date,'%d/%b')`-                     `r format(max(data$collection_date),'%d/%b/%Y')`</p><p style='color:#FF0000;'>\n**********</p></center>"
-output: 
+
+output:
   html_document:
-    toc: true 
+    toc: true
     toc_float:  true
     toc_depth: 3
     theme: cerulean
-editor_options: 
-  chunk_output_type: inline
 ---
 
 <!-- Version 3 update on 9/03/22 -->
@@ -58,11 +57,11 @@ If organisms are detected, microbiologists will perform further identification b
 
 </div>
 
-<div>
+<!-- <div> -->
 
-![Fig 3. Identification of Staphylococci](Images/ID_staph.png){width="80%"}
+<!-- ![Fig 3. Identification of Staphylococci](Images/ID_staph.png){width="80%"} -->
 
-</div>
+<!-- </div> -->
 
 #### c. Antibiotic Susceptibility Testing
 
@@ -70,7 +69,7 @@ Antibiotic Susceptibility Testing follows Clinical and Laboratory Standards Inst
 
 <div>
 
-![Fig 4. Antibiotic Susceptibility Testing and interpretation](Images/AST.png){width="80%"}
+![Fig 3. Antibiotic Susceptibility Testing and interpretation](Images/AST.png){width="80%"}
 
 </div>
 
@@ -81,6 +80,9 @@ Patient information and laboratory data are registered in the Cambodian laborato
 ## 2. Patient demographic
 
 We assume a patient receives care at a hospital (inpatients and outpatients) or private clinics and has only one patient identification number. We removed duplicates to find the actual number of patient requests. Thus, we have: [**`r dedup_by_pid %>% count() %>% mutate_if(is.numeric,format,big.mark=",")`** patient(s)]{style="color:red;font-weight:bold;"}.
+
+\newpage  
+
 
 ### 2.1. Gender
 
@@ -117,10 +119,10 @@ Distribution of age group and gender. We accepted the range 0 to 110 years old. 
 p <- dedup_by_pid %>%
   select(age, sex) %>% 
   mutate(sex = recode(sex, F = "Female", M = "Male")) %>% 
-  filter(age >= 0, age <= 40150) %>% # age [0-110y]
-  mutate(age = age_groups(age,c(28,366,1826,5476,9126,12776,16426,20076,
-                                23726,29201,40150))) %>%
-  group_by(age, sex) %>% count() %>% 
+  filter(age >= 0, age <= 40150) %>%   # age [0-110y]
+  mutate(age = age_groups(age,c(28,365,1825,5475,9125,12775,16425,20075,
+                                23725,27375))) %>%
+  group_by(age, sex) %>% count() %>%
   ggplot() +
   geom_bar(aes(age, n, fill = sex, text = paste0(sex,": ", n)), 
            stat = "identity") +
@@ -129,7 +131,7 @@ p <- dedup_by_pid %>%
   labs(x = "Age", y = "Count") +
   theme_bw() +
   theme(panel.grid.major.x = element_blank(), legend.title = element_blank()) +
-  scale_x_discrete(labels = c("<28d","29d-1y","1-4y","5-14y","15-24y","25-34y","35-44y","45-54y","55-64y","65-80y",">80y")) + 
+  scale_x_discrete(labels = c("<28d","29d-1y","1-4y","5-14y","15-24y","25-34y","35-44y","45-54y","55-64y","65-74y",">75y")) + 
   scale_y_continuous(expand = expansion(mult = c(.01, 0.10)))
 
 
@@ -141,7 +143,7 @@ ggplotly(p, tooltip = "text") %>%
 
 rm(p)
 ```
-
+\newpage
 ## 3. Microbiology specimen
 
 A patient can have more than one microbiology specimen collected. We assume one specimen has one unique sample identification number. After removing duplicates, we have: [**`r dedup_by_id_stype %>% count() %>% mutate_if(is.numeric,format,big.mark=",")`** sample(s)]{style="color:red; font-weight:bold;"}. We stratify data by month and sample type
@@ -175,7 +177,7 @@ p <- sample_by_month %>%
   geom_text(aes(label = n, y = n + (mean(n)*0.40)), size = 2.5) +
   labs(x = "", y = "") +
   coord_flip() + 
-  facet_wrap(~ collection_date_in_month, ncol = 3) +
+  facet_wrap(~ collection_date_in_month) +
   theme_bw() +
   theme(legend.position = "none",
         axis.text = element_text(color = "black"),
@@ -184,8 +186,8 @@ p <- sample_by_month %>%
   scale_y_continuous(expand = expansion(mult = c(.01, .10))) +
   scale_fill_manual(values = specimen_color, limits = force)
 
-ggplotly(p, tooltip = "text") %>% 
-  config(displayModeBar = F,
+ ggplotly(p, tooltip = "text") %>%  
+   config(displayModeBar = F,
          locale = "km") 
   
 rm(p,sample_by_month)
@@ -232,7 +234,7 @@ ggplotly(p, tooltip = "text") %>%
 
 Specimen rejection
 
-```{r specimen rejection}
+```{r cal specimen rejection}
 
 no_sample <- "(\u179c\u17b7\u1797\u17b6\u1782|\u179f\u17c6\u178e\u17b6\u1780)?.*(\u1796\u17bb\u17c6\u1798\u17b6\u1793|\u1782\u17d2\u1798\u17b6\u1793|\u1798\u17b7\u1793\u1798\u17b6\u1793)(?!(\u17a2\u178f\u17d2\u178f|\u1796.*\u1798\u17b6\u1793)).*(\u179c\u17b7\u1797\u17b6\u1782|\u179f\u17c6\u178e\u17b6\u1780)?"
 
@@ -251,16 +253,22 @@ reject_com <- reject_spe %>% # change word to no sample or no label
                                                      "no label", .))
 
 reject_com <- reject_com %>% 
-  mutate(reject = str_extract(str_to_lower(comment), ".*>.*10.*epi.*lpf|no sample|no label"),
+  mutate(reject = str_extract(str_to_lower(comment), ">.*10.*epi.*lpf|no sample|no label"),
         rejected_comment = str_replace(rejected_comment, "Sugg.*$","")
         ) %>% 
   mutate(reject = coalesce(reject, rejected_comment),
          reject = str_to_sentence(reject),
-         reject = str_replace(reject, "\\.*lpf", "LPF")) %>% 
+         reject = str_replace(reject, "lpf", "LPF")) %>% 
   filter(!is.na(reject)) %>% 
   mutate(sample = ifelse(reject == "> 10 epithelial cell/LPF", "Sputum", sample)) %>%
   group_by(sample, reject) %>% count()
   
+
+```
+
+```{r specimen rejection, results='asis'}
+
+if (nrow(reject_com) > 0) {
 total_spe <- reject_com %>% 
 left_join(., spe) %>% 
   group_by(sample, m) %>% 
@@ -275,9 +283,12 @@ left_join(reject_com, total_spe) %>%
   kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive", "bordered")) %>%
   row_spec(0,background = "#FFFF1E") %>% 
   kableExtra::collapse_rows(1:2, valign = "middle")
-
+}
 rm(spe, reject_com, total_spe)
 ```
+
+
+
 
 ## 4. Cerebrospinal fluid (CSF) pathogens isolated
 
@@ -303,7 +314,7 @@ p <- csf %>%
   ggplot(aes(reorder(result, n), n, fill = result)) + 
   geom_bar(stat = "identity", width = 0.5, aes(text = paste0(result,": ",n))) + 
   facet_wrap(~desc) +
-  geom_text(aes(label = n, y = n + (mean(n)*0.04)), size = 3, hjust = -0.2) +
+  geom_text(aes(label = n, y = n + (mean(n)*0.08)), size = 3, hjust = -0.2) +
   coord_flip() +
   labs(x = "", y = "Cases") +
   theme_bw() +
@@ -396,7 +407,7 @@ p <- blood_path %>%
   ggplot(aes(reorder(result, m), n, fill = result)) +
   geom_bar(stat = "identity", aes(text = paste0(result,": ", n))) + 
   facet_wrap(~ desc) +
-  geom_text(aes(label = n, y = n + (mean(n)*0.07)), size = 3) +
+  geom_text(aes(label = n, y = n + (mean(n)*0.30)), size = 3) +
   labs(x = "",y = "Cases") +
   coord_flip() +
   theme_bw() +
@@ -439,6 +450,8 @@ full_join(df, da, by = c("collection_date_in_month", "result", "n")) %>%
 
 rm(da,df)
 ```
+
+\newpage  
 
 ### 5.3. Blood culture bottle collected and contamination rate
 
@@ -529,7 +542,7 @@ df <- bc_cont_deduplicate %>%
 # finding patient request by wards
 request <- data %>% 
   filter(sample == "Blood Culture") %>% 
-  distinct(patient_id,lab_id,sample,.keep_all = T) %>% 
+  distinct(patient_id, sample,.keep_all = T) %>% 
   group_by(sample_source) %>% 
   summarise("Patient request" = n()) 
 
@@ -806,12 +819,14 @@ blank <- cbind(month, 'Bottle A' = rep(0, 12), 'Bottle B' = rep(0, 12), Total = 
  
 ```
 
-There were [`r miss_bv` bottle(s)]{style="color:red;font-weight:bold;"} with empty blood culture volume field in CamLIS. This table is used to monitor number of blood culture collected per patient and impact of missing blood culture volume data.
+<!-- There were [`r miss_bv` bottle(s)]{style="color:red;font-weight:bold;"} with empty blood culture volume field in CamLIS. This table is used to monitor number of blood culture collected per patient and impact of missing blood culture volume data. -->
 
 <!-- Missing blood culture volume -->
 
-```{r  missing blood culture volume}
-#if (miss_bv > 0) {
+```{r  missing blood culture volume, results='asis'}
+if (miss_bv > 0) {
+  cat(paste0("[",miss_bv," bottles]{style='color:red;font-weight:bold;'}"," empty blood culture volume in CamLIS and it is impacted on the calculation of contamination rate <br><br>")) 
+ 
   missing_bv %>% 
     rename(Month = collection_date_in_month) %>% 
     arrange(Month) %>% 
@@ -821,26 +836,29 @@ There were [`r miss_bv` bottle(s)]{style="color:red;font-weight:bold;"} with emp
     kable_styling(bootstrap_options = c("condensed","bordered","striped", "hover","responsive")) %>%
     add_header_above(c("Missing blood culture volume" = 4),bold = T,background = "#FFF8D8") %>%
     row_spec(0,background = "#FFE4C4")
-#}
+}else{cat("Well done. All bottles are weighted and recorded volume in CamLIS")}
 
 rm(bottle,bottle_A,bottle_B,missing_bv,miss_bv,b_volume, blank)
 ```
 
+\newpage  
+
 ### 5.6. Blood culture day of positivity
 
 Microbiology laboratories always report the day of blood culture positivity in the patient report comment. We present the common pathogens isolated.
-```{r comment="#", results='asis'}
+```{r results='asis'}
 
 record <- comment %>% filter(is.na(day_growth)) %>% count()
 
 if (record > 0) {
 cat(paste("[", record,"patient]{style='color:red;font-weight:bold;'}","had no record of the day of positivity, therefore, it was excluded in the analysis."))
   
-}
+}else{cat("Well done. All blood culture positive days were recorded in CamLIS")}
 
 rm(record)
 
 ```
+
 <!-- [`r comment %>% filter(is.na(day_growth)) %>% count()` patient(s)]{style="color:red;font-weight:bold;"} had no record of the day of positivity, therefore, it was excluded in the analysis. -->
 
 ```{r day of positive, fig.width= 8}
@@ -872,6 +890,7 @@ p$data$result <- factor(paste0("<i>", p$data$result, "</i>"),
                                    "<i>Acinetobacter</i>", 
                                    "<i>Burkholderia pseudomallei</i>",
                                    "<i>Pseudomonas aeruginosa</i>",
+                                   "<i>Non-fermenting gram negative rods</i>",
                                    "<i>Staphylococcus aureus</i>",
                                    "<i>Coagulase Negative Staphylococcus</i>",
                                    "<i>Cryptococcus</i>"))
@@ -882,18 +901,19 @@ ggplotly(p, tooltip = "text") %>%
 
 ```
 
+\newpage  
+
 ### 5.7. Blood culture TurnAround Time
 
 TurnAround Time (TAT) is the expectation time that laboratory report result back to collectors. According to Excel extracted from CamLIS, we can report positive blood culture TAT from specimen collection to Notify Gram stain.
 
-```{r comment="#", results='asis'}
+```{r results='asis'}
 
 record <-  TAT %>% filter(is.na(primary_report)) %>% count()
 
 if (record > 0) {
 cat(paste("[", record,"records]{style='color:red;font-weight:bold;'}","missed document date or time and excluded in the analysis."))
-  
-}
+}else{cat("Well done. Date and Time notifiable are recorded")}
 rm(record)
 ```
 
@@ -907,8 +927,8 @@ record <- TAT %>%
   select(primary_report) %>% count()
 
 TAT %>% 
-  select(collection_date, primary_report) %>% 
-  mutate(tat_h = round_half_up(as.numeric(primary_report - collection_date))) %>% 
+  select(collection_date, primary_report, patient_id) %>% 
+  mutate(tat_h = round_half_up(as.numeric(difftime(primary_report, collection_date, units = "hours")))) %>% 
   plot_ly() %>% 
   add_boxplot(y = ~tat_h, 
             boxpoints = "all",
@@ -1071,6 +1091,7 @@ rm(mdr, MRSA, ESBL, CRE, VRSA)
 ```
 
 **Tracking [blood culture]{style="color:red"} isolates by month for possible Healthcare Associated Infection (HAI)**. We filtered blood culture collection date after 48 hours of admission with common bacteria associated with HAI.
+
 ```{r comment="#", results='asis'}
 
 record <-  HAI %>% filter(is.na(HAI)) %>% count()
@@ -1081,7 +1102,6 @@ cat(paste("[", record,"records]{style='color:red;font-weight:bold;'}"," excluded
 }
 rm(record)
 ```
-
 
 ```{r HAI}
 org <- HAI %>% 
@@ -1113,6 +1133,8 @@ list(org, data.frame(result = org_in_hos)) %>%
 rm(org_in_hos, org, month_data, HAI)
 
 ```
+
+\newpage  
 
 ## 7. *Burkholderia pseudomallei (Bps)*
 
@@ -1192,14 +1214,14 @@ da <- rbind(blank_data, d) %>%
   geom_bar(aes(month,n, fill = sample, 
                text = paste0(sample,": ", n)),
                stat = "identity",width = 0.5) +
-   geom_text(aes(month, total + mean(total)*0.04 , label = paste0("Total: ", total)), size = 3,
-               stat = "identity") +
+   geom_text(aes(month, total + 0.15 , label = paste0("Total: ", total)), size = 3,
+                stat = "identity") +
   theme_bw() +
   labs(x = "Month", y = "Bps cases") +
   scale_fill_manual(values = specimen_color, limits = force) +
-  scale_y_continuous(expand = expansion(mult = c(.01, .10)), 
+  scale_y_continuous(expand = expansion(mult = c(.01,.10)), 
                      labels = scales::number_format(accuracy = 1))
-
+ 
 ggplotly(p, tooltip = "text" ) %>% 
   layout(legend = list(title = list(text = ""),
                                x = 1, y = 0.5   
@@ -1214,24 +1236,45 @@ ggplotly(p, tooltip = "text" ) %>%
 
 ```{r bps AMR, results='asis'}
 if (bps > 0) {
-data %>% 
+da <- data %>% 
   filter(result %in% "Burkholderia pseudomallei") %>% 
   select(result, AMC,CAZ,MEM,TMP,GEN) %>%
   mutate(mo = as.mo(result, info = F)) %>% 
   bug_drug_combinations() %>%
-  rename(Organism = mo, Antibiotic = ab, Total = total) %>% 
-  mutate(Antibiotic = ab_name(Antibiotic)) %>%
-  select(Antibiotic,S,I,R,Total) %>% 
-  kable(align = c("l", 'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
-  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive"), position = "left") %>% 
-  add_header_above(c("Antibiotic Susceptibility Patterns" = 5), bold = T,background = "#FFA500") %>% 
-  footnote("S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
-  row_spec(0, background =  "#FFE4E1") %>% 
-  column_spec(2:5, width = "5em") %>% 
+  rename(Organism = mo, Antibiotic = ab, Total = total)
+S <- binconf(da$S, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(S = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+I <- binconf(da$I, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(I = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+R <- binconf(da$R, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(R = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+
+cbind(da, S$S, I$I, R$R) %>%
+  mutate(Antibiotic = ab_name(Antibiotic),
+         "S (%)[95CI]" = paste(S, `S$S`),
+         "I (%)[95CI]" = paste(I , `I$I`),
+         "R (%)[95CI]" = paste(R , `R$R`)
+         ) %>% 
+  select(Antibiotic, `S (%)[95CI]`, `I (%)[95CI]`, `R (%)[95CI]`, Total) %>% 
+    kable(align = c("l",'l', 'l','l','c'), table.attr = "style='width:100%;'") %>% 
+  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
+  row_spec(0,background = "#FFA500") %>% 
+  column_spec(2:4, width = "10em") %>% 
   column_spec(2,color = "#6698FF",bold = T) %>%
   column_spec(4,color = "#F88017",bold = T)
+
 }
+rm(bps, da, S, I, R)
 ```
+
+\newpage  
 
 ## 8. Salmonella
 
@@ -1261,7 +1304,8 @@ p <- da %>%
   theme_bw() +
   labs(x = "Month", y = "Salmonella cases") +
   #scale_y_continuous(limits = c(0,max(da$total))) +
-  scale_fill_manual(values = specimen_color, limits = force)
+  scale_fill_manual(values = specimen_color, limits = force) +
+  scale_y_continuous(limits = c(0, 3))
 
 ggplotly(p, tooltip = "text" ) %>% 
   layout(legend = list(title = list(text = ""),
@@ -1278,53 +1322,93 @@ ggplotly(p, tooltip = "text" ) %>%
 We filter [blood culture]{style="color:red"} by first pathogen isolated in an period of 30 days and apply all EUCAST expert rules for Intrinsic Resistance and Unusual Phenotypes (AMR v3.3, 2021) before analyzing antibiotic susceptibility patterns. We produced cAST for pathogens included in the [GLASS](https://www.who.int/initiatives/glass) priority pathogen list.
 
 ### 9.1. *Staphylococcus aureus*
-There were [`r sau` *Staphylococcus aureus*]{style="color:red;font-weight:bold;"} reported.
 
+There were [`r sau` *Staphylococcus aureus*]{style="color:red;font-weight:bold;"} reported.
 ```{r S.aureus cAST}
 if (sau > 0) {
-bc_first_isolate %>% 
+  da <- bc_first_isolate %>% 
   filter(mo %in% c("B_STPHY_AURS")) %>%
   select(mo,CLO,CZO,ERY,CLI,TCY,CHL,TMP,VAN) %>%
   bug_drug_combinations() %>%
-  rename(Organism = mo,Antibiotic = ab, Total = total) %>% 
-  mutate(Antibiotic = ab_name(Antibiotic)) %>%
-  select(Antibiotic,S,I,R,Total) %>% 
-  kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
+  rename(Organism = mo, Antibiotic = ab, Total = total) %>% 
+  filter(Total > 0)
+  
+S <- binconf(da$S, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(S = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+I <- binconf(da$I, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(I = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+R <- binconf(da$R, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(R = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+
+cbind(da, S$S, I$I, R$R) %>%
+  mutate(Antibiotic = ab_name(Antibiotic),
+         "S (%)[95CI]" = paste(S, `S$S`),
+         "I (%)[95CI]" = paste(I , `I$I`),
+         "R (%)[95CI]" = paste(R , `R$R`)
+         ) %>% 
+  select(Antibiotic, `S (%)[95CI]`, `I (%)[95CI]`, `R (%)[95CI]`, Total) %>% 
+    kable(align = c("l",'l', 'l','l','c'), table.attr = "style='width:100%;'") %>% 
   kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
- # add_header_above(c("Staphylococcus aureus"=5),bold = T,italic = T,background ="#FFA500") %>% 
-  footnote("  S: susceptible, I: intermediate, R: resistant
-           Cloxacillin resistance: MRSA", general_title = "") %>% 
-  row_spec(0,background = "#FFA500") %>% ##FFE4E1 good color pink
-  column_spec(2:5, width = "5em") %>% 
+  footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
+  row_spec(0,background = "#FFA500") %>% 
+  column_spec(2:4, width = "10em") %>% 
   column_spec(2,color = "#6698FF",bold = T) %>%
   column_spec(4,color = "#F88017",bold = T)
 }
-rm(sau)
+rm(sau, da, S, I, R)
 ```
 
-### 9.2. *Escherichia coli*
-There were [`r eco` *Escherichia coli*]{style="color:red;font-weight:bold;"} reported.
 
+### 9.2. *Escherichia coli*
+
+There were [`r eco` *Escherichia coli*]{style="color:red;font-weight:bold;"} reported.
 ```{r E.coli cAST}
 if (eco > 0) {
-bc_first_isolate %>% 
+da <- bc_first_isolate %>% 
   filter(mo %in% c("B_ESCHR_COLI")) %>%
   select(mo,AMP,AMC,CRO,CAZ,MEM,IPM,GEN,AMK,CIP,TMP,CHL) %>% 
   bug_drug_combinations() %>%
-  rename(Organism = mo,Antibiotic = ab, Total = total) %>%
-  mutate(Antibiotic = ab_name(Antibiotic)) %>%
-  select(Antibiotic,S,I,R,Total) %>% 
-  kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
+  rename(Organism = mo, Antibiotic = ab, Total = total)
+
+S <- binconf(da$S, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(S = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+I <- binconf(da$I, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(I = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+R <- binconf(da$R, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(R = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+
+cbind(da, S$S, I$I, R$R) %>%
+  mutate(Antibiotic = ab_name(Antibiotic),
+         "S (%)[95CI]" = paste(S, `S$S`),
+         "I (%)[95CI]" = paste(I , `I$I`),
+         "R (%)[95CI]" = paste(R , `R$R`)
+         ) %>% 
+  select(Antibiotic, `S (%)[95CI]`, `I (%)[95CI]`, `R (%)[95CI]`, Total) %>% 
+    kable(align = c("l",'l', 'l','l','c'), table.attr = "style='width:100%;'") %>% 
   kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
-  #add_header_above(c("Escherichia coli"=5),bold = T,italic = T,background ="#FFA500") %>% 
   footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
   row_spec(0,background = "#FFA500") %>% 
-  column_spec(2:5, width = "5em") %>% 
+  column_spec(2:4, width = "10em") %>% 
   column_spec(2,color = "#6698FF",bold = T) %>%
   column_spec(4,color = "#F88017",bold = T)
+  
 }
-rm(eco)
+rm(eco, da, S, I, R)
+
 ```
+
 
 ### 9.3. *Klebsiella pneumoniae*
 
@@ -1332,73 +1416,131 @@ There were [`r kpn` *Klebsiella pneumoniae*]{style="color:red;font-weight:bold;"
 
 ```{r K.pneumoniae cAST}
 if (kpn > 0) {
-bc_first_isolate %>% 
+da <- bc_first_isolate %>% 
   filter(mo %in% c("B_KLBSL_PNMN")) %>%
   select(mo,AMP,AMC,CRO,CAZ,MEM,IPM,GEN,AMK,CIP,TMP,CHL) %>% 
   bug_drug_combinations() %>%
-  rename(Organism = mo,Antibiotic = ab, Total = total) %>% 
-  mutate(Antibiotic = ab_name(Antibiotic)) %>%
-  select(Antibiotic,S,I,R,Total) %>% 
-  kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
+  rename(Organism = mo,Antibiotic = ab, Total = total)
+
+S <- binconf(da$S, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(S = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+I <- binconf(da$I, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(I = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+R <- binconf(da$R, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(R = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+
+cbind(da, S$S, I$I, R$R) %>%
+  mutate(Antibiotic = ab_name(Antibiotic),
+         "S (%)[95CI]" = paste(S, `S$S`),
+         "I (%)[95CI]" = paste(I , `I$I`),
+         "R (%)[95CI]" = paste(R , `R$R`)
+         ) %>% 
+  select(Antibiotic, `S (%)[95CI]`, `I (%)[95CI]`, `R (%)[95CI]`, Total) %>% 
+    kable(align = c("l",'l', 'l','l','c'), table.attr = "style='width:100%;'") %>% 
   kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
-  #add_header_above(c("Klebsiella pneumoniae"=5),bold = T,italic = T,background ="#FFA500") %>% 
   footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
   row_spec(0,background = "#FFA500") %>% 
-  column_spec(2:5, width = "5em") %>% 
+  column_spec(2:4, width = "10em") %>% 
   column_spec(2,color = "#6698FF",bold = T) %>%
   column_spec(4,color = "#F88017",bold = T)
 }
-rm(kpn)
+rm(kpn, da, S, I, R)
+
 ```
 
+
 ### 9.4. *Pseudomonas aeruginosa*
+
 There were [`r pse` *Pseudomonas aeruginosa*]{style="color:red;font-weight:bold;"} reported.
 
 ```{r P.aeruginosa cAST}
 if (pse > 0) {
-bc_first_isolate %>% 
+da <- bc_first_isolate %>% 
   filter(mo %in% c("B_PSDMN_AERG")) %>%
   select(mo,CIP,CAZ,MEM,GEN,AMK) %>% 
   bug_drug_combinations() %>%
-  rename(Organism = mo,Antibiotic = ab, Total = total) %>% 
-  mutate(Antibiotic = ab_name(Antibiotic)) %>%
-  select(Antibiotic,S,I,R,Total) %>% 
-  kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
+  rename(Organism = mo,Antibiotic = ab, Total = total)
+
+S <- binconf(da$S, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(S = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+I <- binconf(da$I, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(I = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+R <- binconf(da$R, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(R = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+
+cbind(da, S$S, I$I, R$R) %>%
+  mutate(Antibiotic = ab_name(Antibiotic),
+         "S (%)[95CI]" = paste(S, `S$S`),
+         "I (%)[95CI]" = paste(I , `I$I`),
+         "R (%)[95CI]" = paste(R , `R$R`)
+         ) %>% 
+  select(Antibiotic, `S (%)[95CI]`, `I (%)[95CI]`, `R (%)[95CI]`, Total) %>% 
+    kable(align = c("l",'l', 'l','l','c'), table.attr = "style='width:100%;'") %>% 
   kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
-  #add_header_above(c("Pseudomonas aeruginosa"=5),bold = T,italic = T,background ="#FFA500") %>% 
   footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
   row_spec(0,background = "#FFA500") %>% 
-  column_spec(2:5, width = "5em") %>% 
+  column_spec(2:4, width = "10em") %>% 
   column_spec(2,color = "#6698FF",bold = T) %>%
   column_spec(4,color = "#F88017",bold = T)
 }
-rm(pse)
+rm(pse, da, S, I, R)
+
 ```
 
 ### 9.5. *Acinetobacter*
+
 There were [`r ac` *Acinetobacter*]{style="color:red;font-weight:bold;"} reported.
-
-
 ```{r Acinetobacter cAST}
 if (ac > 0) {
-bc_first_isolate %>% 
+  da <- bc_first_isolate %>% 
   filter(mo %in% c("B_ACNTB")) %>%
   select(mo,CIP,CAZ,MEM,GEN,AMK,TMP) %>%
   bug_drug_combinations() %>%
-  rename(Organism = mo,Antibiotic = ab, Total = total) %>% 
-  mutate(Antibiotic = ab_name(Antibiotic)) %>%
-  select(Antibiotic,S,I,R,Total) %>% 
-  kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
+  rename(Organism = mo,Antibiotic = ab, Total = total)
+  
+S <- binconf(da$S, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(S = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+I <- binconf(da$I, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(I = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+R <- binconf(da$R, da$Total) %>% 
+  as.data.frame() %>% 
+  round(1) %>% 
+  mutate(R = paste0("(",PointEst*100,"%)[",Lower*100,"-", Upper*100,"]"))
+
+cbind(da, S$S, I$I, R$R) %>%
+  mutate(Antibiotic = ab_name(Antibiotic),
+         "S (%)[95CI]" = paste(S, `S$S`),
+         "I (%)[95CI]" = paste(I , `I$I`),
+         "R (%)[95CI]" = paste(R , `R$R`)
+         ) %>% 
+  select(Antibiotic, `S (%)[95CI]`, `I (%)[95CI]`, `R (%)[95CI]`, Total) %>% 
+    kable(align = c("l",'l', 'l','l','c'), table.attr = "style='width:100%;'") %>% 
   kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
-  #add_header_above(c("Acinetobacter"=5),bold = T,italic = T,background ="#FFA500") %>% 
   footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
   row_spec(0,background = "#FFA500") %>% 
-  column_spec(2:5, width = "5em") %>% 
+  column_spec(2:4, width = "10em") %>% 
   column_spec(2,color = "#6698FF",bold = T) %>%
   column_spec(4,color = "#F88017",bold = T)
 }
-rm(ac)
+rm(ac, da, S, I, R)
 ```
+
 
 ## 10. Acknowledgement
 
@@ -1406,7 +1548,7 @@ We gratefully acknowledge support from `r dic$hospital_name`, Bureau of Medical 
 
 ------------------------------------------------------------------------
 
-```{=html}
+```{css}
 <p align="right";> Reported by <br> 
 `r dic$report_by` <br><br><br>
 `r format(Sys.Date(),"%d-%b-%Y")`</p>
