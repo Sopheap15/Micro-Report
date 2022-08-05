@@ -27,6 +27,12 @@ knitr::opts_chunk$set(echo = F,
 }
 ```
 
+---
+titile
+---
+
+
+
 ## 1. Introduction {.tabset}
 
 ### Context
@@ -81,7 +87,6 @@ Patient information and laboratory data are registered in the Cambodian laborato
 
 We assume a patient receives care at a hospital (inpatients and outpatients) or private clinics and has only one patient identification number. We removed duplicates to find the actual number of patient requests. Thus, we have: [**`r dedup_by_pid %>% count() %>% mutate_if(is.numeric,format,big.mark=",")`** patient(s)]{style="color:red;font-weight:bold;"}.
 
-\newpage  
 
 
 ### 2.1. Gender
@@ -143,7 +148,6 @@ ggplotly(p, tooltip = "text") %>%
 
 rm(p)
 ```
-\newpage
 ## 3. Microbiology specimen
 
 A patient can have more than one microbiology specimen collected. We assume one specimen has one unique sample identification number. After removing duplicates, we have: [**`r dedup_by_id_stype %>% count() %>% mutate_if(is.numeric,format,big.mark=",")`** sample(s)]{style="color:red; font-weight:bold;"}. We stratify data by month and sample type
@@ -451,7 +455,7 @@ full_join(df, da, by = c("collection_date_in_month", "result", "n")) %>%
 rm(da,df)
 ```
 
-\newpage  
+
 
 ### 5.3. Blood culture bottle collected and contamination rate
 
@@ -841,7 +845,7 @@ if (miss_bv > 0) {
 rm(bottle,bottle_A,bottle_B,missing_bv,miss_bv,b_volume, blank)
 ```
 
-\newpage  
+  
 
 ### 5.6. Blood culture day of positivity
 
@@ -901,7 +905,6 @@ ggplotly(p, tooltip = "text") %>%
 
 ```
 
-\newpage  
 
 ### 5.7. Blood culture TurnAround Time
 
@@ -1134,7 +1137,6 @@ rm(org_in_hos, org, month_data, HAI)
 
 ```
 
-\newpage  
 
 ## 7. *Burkholderia pseudomallei (Bps)*
 
@@ -1274,7 +1276,6 @@ cbind(da, S$S, I$I, R$R) %>%
 rm(bps, da, S, I, R)
 ```
 
-\newpage  
 
 ## 8. Salmonella
 

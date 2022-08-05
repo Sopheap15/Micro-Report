@@ -84,17 +84,30 @@ read_file <- function(path) {
     )) 
     
 }
+# format date
+format_date <- function(d){
+  if (is.character(d$collection_date) == TRUE) {
+    d %>% 
+      mutate_at(vars(contains("date")), lubridate::ymd_hms)
+  } else if (is.numeric(d$collection_date) == TRUE) {
+    d %>%
+      mutate_at(vars(contains("date")), ~ as.POSIXct(.* (60*60*24)
+                                                     , origin="1899-12-30"
+                                                     , tz="GMT"))
+  }else{
+    "Datetime is in correct format"
+  }
+  
+}
 
 data <- list.files(path = "data",
                    pattern = "[Bb]ac.*port.*.xls(x)?",
                    full.names = T) %>%
   purrr::discard(file_name, .p = ~ stringr::str_detect(., "~")) %>%
   map_df(read_file) %>%
-  # purrr::map(~read_file(.)) %>%
-  # reduce(., bind_rows) %>%
   mutate(sex = factor(sex)) %>%
-  mutate_at(vars(contains("date")), convert_to_datetime)
-
+  format_date()
+ 
 data <- data %>% # Filter lab name
   filter(lab_name == ifelse(dic$short_name == "All", lab_name, dic$short_name))
 
