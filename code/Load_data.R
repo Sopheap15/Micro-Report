@@ -5,7 +5,7 @@ library("kableExtra")
 library("AMR")
 library("readxl")
 library("plotly")
-library("Hmisc")
+#library("Hmisc")
 
 # Month -----
 month <-
@@ -88,12 +88,15 @@ read_file <- function(path) {
 format_date <- function(d){
   if (is.character(d$collection_date) == TRUE) {
     d %>% 
-      mutate_at(vars(contains("date")), lubridate::ymd_hms)
+      mutate_at(vars(contains("date")), ~as.POSIXct(., 
+                                                    format="%d-%B-%Y %H:%M",
+                                                    tz="GMT") 
+                )
   } else if (is.numeric(d$collection_date) == TRUE) {
     d %>%
-      mutate_at(vars(contains("date")), ~ as.POSIXct(.* (60*60*24)
-                                                     , origin="1899-12-30"
-                                                     , tz="GMT"))
+      mutate_at(vars(contains("date")), ~ as.POSIXct(.* (60*60*24),
+                                                     origin="1899-12-30",
+                                                     tz="GMT"))
   }else{
     "Datetime is in correct format"
   }
@@ -105,7 +108,7 @@ data <- list.files(path = "data",
                    full.names = T) %>%
   purrr::discard(file_name, .p = ~ stringr::str_detect(., "~")) %>%
   map_df(read_file) %>%
-  mutate(sex = factor(sex)) %>%
+  mutate(sex = factor(sex)) %>% 
   format_date()
  
 data <- data %>% # Filter lab name
@@ -136,7 +139,7 @@ data <- data %>% # Recode specimen and mutate column collection_date_in month
 
 
 data <- data %>% # Deduplicate data
-  distinct(patient_id, lab_id, collection_date, sample, result, .keep_all = T)
+  distinct(patient_id, lab_id, collection_date, sample, results, .keep_all = T)
 
 write_rds(data, compress = "none", "Outputs/clean_data")
 
@@ -148,10 +151,10 @@ reject_spe <- data %>% # reject specimen
          lab_id,
          collection_date ,
          sample,
-         result,
+         results,
          comment,
-         rejected_comment) %>%
-  distinct(patient_id, lab_id, collection_date, sample, result, .keep_all = T)
+         reject_comment) %>%
+  distinct(patient_id, lab_id, collection_date, sample, results, .keep_all = T)
 
 
 # Age group
@@ -170,34 +173,40 @@ data <- data %>%
 
 # Recode contamination organism
 data <- data %>%
-  filter(!is.na(result)) %>%
+  filter(!is.na(results)) %>%
   mutate(
-    result = case_when(
-      str_detect(result, "^Micrococcus") == TRUE ~ "Micrococcus",
-      str_detect(result, "^Baci(\\w+)(?!(.+)?anth(\\w+))") == TRUE ~ "Bacillus",
-      str_detect(result, "^Cory(\\w+)(?!(.+)?diph(\\w+))") == TRUE ~ "Corynebacterium",
-      # str_detect(result, "viridans") == TRUE ~ "Streptococcus viridans, alpha-hem.",
-      TRUE ~ result
+    results = case_when(
+      str_detect(results, "^Micrococcus") == TRUE ~ "Micrococcus",
+      str_detect(results, "^Baci(\\w+)(?!(.+)?anth(\\w+))") == TRUE ~ "Bacillus",
+      str_detect(results, "^Cory(\\w+)(?!(.+)?diph(\\w+))") == TRUE ~ "Corynebacterium",
+      str_detect(results, "Ent\\w+ales.*sp") == TRUE ~ "Enterobacter",
+      str_detect(results, "Ent\\w+ales.*acae") == TRUE ~ "Enterobacter cloacae",
+      str_detect(results, "Ent\\w+ales.*rans") == TRUE ~ "Pantoea agglomerans",
+      str_detect(results, "Ent\\w+ales.*genes") == TRUE ~ "Klebsiella aerogenes",
+      str_detect(results, "Ent\\w+ales.*genes") == TRUE ~ "Klebsiella aerogenes",
+      str_detect(results, "Ent\\w+ales.*zakii") == TRUE ~ "Cronobacter sakazakii",
+      #str_detect(results, "Streptococcus anginosus group") == TRUE ~ "Streptococcus anginosus",
+      TRUE ~ results
     )
   )
 
-# Remove unusal string and convert to standard name
+# Remove unusual string and convert to standard name
 data <- data %>%
   mutate(
-    result = gsub("(\\s)?sp(p|.)?$", "", result),
+    results = gsub("(\\s)?sp(p|.)?$", "", results),
     # remove sp. or spp.
-    result = gsub("(\\s)?\\d$", "", result),
+    results = gsub("(\\s)?\\d$", "", results),
     # remove number
-    result = gsub("^[Pp]resumptive", "", result),
+    results = gsub("^[Pp]resumptive", "", results),
     # remove word presumptive
-    result = gsub("(\\s)?.not albicans$", "", result),
+    results = gsub("(\\s)?.not albicans$", "", results),
     # remove word .not albicans
-    result = gsub("(\\s)?\\(rods\\)$", "", result),
+    results = gsub("(\\s)?\\(rods\\)$", "", results),
     # remove word rods
-    result = gsub("non-[tT]yphi$|non-[tT]yphi/non-[pP]aratyphi$", "", result),
-    result = gsub(",(\\s)?$", "", result),
-    result = trimws(result, "both")
-    #mo = as.mo(result, info = F) # convert to standard name
+    results = gsub("non-[tT]yphi$|non-[tT]yphi/non-[pP]aratyphi$", "", results),
+    results = gsub(",(\\s)?$", "", results),
+    results = trimws(results, "both")
+    #mo = as.mo(results, info = F) # convert to standard name
   )
 
 # Convert antibiotic name to standard
@@ -242,13 +251,13 @@ dedup_by_id_stype <- data %>%
 # Blood culture first isolate----
 bc_first_isolate <- data %>%
   filter(sample == "Blood Culture",
-         !result %in% c(cont_org_list, "No growth")) %>%
-  mutate(mo = as.mo(result, info = F)) %>%
+         !results %in% c(cont_org_list, "No growth")) %>%
+  mutate(mo = as.mo(results, info = F)) %>%
   filter_first_isolate(
     episode_day = 30,
     col_patient_id = "patient_id",
     col_date = "collection_date",
-    col_mo = "result",
+    col_mo = "results",
     info = F
   ) %>%
   eucast_rules(
@@ -260,8 +269,8 @@ bc_first_isolate <- data %>%
 
 bc_cont_deduplicate <-
   data %>% # need to modify on contamination organism
-  filter(sample == "Blood Culture", result %in% c(cont_org_list)) %>%
-  distinct(lab_id, result, .keep_all = T)
+  filter(sample == "Blood Culture", results %in% c(cont_org_list)) %>%
+  distinct(lab_id, results, .keep_all = T)
 
 # Possible HAI
 HAI <- data %>% # from dataset select only notifiable organism
@@ -270,17 +279,17 @@ HAI <- data %>% # from dataset select only notifiable organism
     sample,
     collection_date,
     admission_date,
-    result,
+    results,
     collection_date_in_month
   ) %>%
-  filter(sample == "Blood Culture", result %in% org_in_hos) %>%
+  filter(sample == "Blood Culture", results %in% org_in_hos) %>%
   mutate(HAI = as.numeric(collection_date - admission_date)) %>%
   arrange(collection_date_in_month) %>%
   distinct(patient_id , .keep_all = T)
 
 # Clean comment----
 comment <- data %>%
-  select(lab_name, sample, result, comment) %>%
+  select(lab_name, sample, results, comment) %>%
   filter(sample == "Blood Culture", !is.na(comment)) %>%
   mutate(
     comment = str_replace_all(
@@ -306,10 +315,10 @@ comment <- data %>%
                              pattern = "\\d")
   )
 
-# Critical result detection
+# Critical results detection
 critical_result <- data %>%
-  filter(sample == "Blood Culture", !is.na(comment), result != "No growth") %>%
-  distinct(patient_id, result, .keep_all = T) %>%
+  filter(sample == "Blood Culture", !is.na(comment), results != "No growth") %>%
+  distinct(patient_id, results, .keep_all = T) %>%
   select(comment) %>%
   mutate(
     call = str_detect(
@@ -330,13 +339,13 @@ TAT <- data %>%
          collection_date,
          admission_date,
          sample,
-         result,
+         results,
          comment) %>%
-  filter(!is.na(result),
+  filter(!is.na(results),
          sample == "Blood Culture",
          !is.na(comment),
-         !result  %in% c("No growth")) %>%
-  distinct(patient_id, result, .keep_all = T) %>%
+         !results  %in% c("No growth")) %>%
+  distinct(patient_id, results, .keep_all = T) %>%
   mutate(
     comment_by = str_extract(str_to_lower(comment),
                              pattern = "(\\.*)?(call[ed]?|phon[ed]?)(.*)"),

@@ -1,5 +1,4 @@
 # Load data (Shortcut CTR|Command + A + Enter)----
-setwd(getwd())
 rm(list = ls())
 source("code/Load_data.R",knitr::knit_global())
 

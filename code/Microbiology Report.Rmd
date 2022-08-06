@@ -182,7 +182,7 @@ p <- sample_by_month %>%
   theme(legend.position = "none",
         axis.text = element_text(color = "black"),
         axis.title = element_text(size = 10),
-        panel.grid.major = element_blank())  +
+        panel.grid.major = element_blank()) +
   scale_y_continuous(expand = expansion(mult = c(.01, .10))) +
   scale_fill_manual(values = specimen_color, limits = force)
 
@@ -246,17 +246,17 @@ spe <- dedup_by_id_stype %>%
 
 
 reject_com <- reject_spe %>% # change word to no sample or no label
-  mutate_at(vars(comment, rejected_comment), ~str_replace_all(., pattern = "\u200B","")) %>% 
-  mutate_at(vars(comment, rejected_comment), ~ifelse(str_detect(., no_sample) == TRUE,
+  mutate_at(vars(comment, reject_comment), ~str_replace_all(., pattern = "\u200B","")) %>% 
+  mutate_at(vars(comment, reject_comment), ~ifelse(str_detect(., no_sample) == TRUE,
                                                      "no sample", .)) %>%
-  mutate_at(vars(comment, rejected_comment), ~ifelse(str_detect(., no_label) == TRUE,
+  mutate_at(vars(comment, reject_comment), ~ifelse(str_detect(., no_label) == TRUE,
                                                      "no label", .))
 
 reject_com <- reject_com %>% 
   mutate(reject = str_extract(str_to_lower(comment), ">.*10.*epi.*lpf|no sample|no label"),
-        rejected_comment = str_replace(rejected_comment, "Sugg.*$","")
+        reject_comment = str_replace(reject_comment, "Sugg.*$","")
         ) %>% 
-  mutate(reject = coalesce(reject, rejected_comment),
+  mutate(reject = coalesce(reject, reject_comment),
          reject = str_to_sentence(reject),
          reject = str_replace(reject, "lpf", "LPF")) %>% 
   filter(!is.na(reject)) %>% 
@@ -294,7 +294,7 @@ rm(spe, reject_com, total_spe)
 
 ```{r positive csf}
 csf <- data %>% 
-  filter(sample == "CSF", !is.na(result), result != "No growth") %>% 
+  filter(sample == "CSF", !is.na(results), results != "No growth") %>% 
   summarise(n = n())
 ```
 
@@ -303,16 +303,16 @@ There were [`r csf` CSF]{style="color:red; font-weight:bold;"} positive.
 ```{r CSF}
 if (csf > 0) {
 csf <- data %>% 
-  select(sample, result, age) %>% 
-  filter(sample == "CSF", !is.na(result), result != "No growth") %>% 
+  select(sample, results, age) %>% 
+  filter(sample == "CSF", !is.na(results), results != "No growth") %>% 
   mutate(desc = case_when(age < 5110 ~ "Pediatric (<14 years old)",
                           TRUE ~ "Adult (>=14 years old)")) %>% 
-  group_by(result, desc) %>% 
+  group_by(results, desc) %>% 
   summarise(n = n(), .groups = "drop") 
 
 p <- csf %>%   
-  ggplot(aes(reorder(result, n), n, fill = result)) + 
-  geom_bar(stat = "identity", width = 0.5, aes(text = paste0(result,": ",n))) + 
+  ggplot(aes(reorder(results, n), n, fill = results)) + 
+  geom_bar(stat = "identity", width = 0.5, aes(text = paste0(results,": ",n))) + 
   facet_wrap(~desc) +
   geom_text(aes(label = n, y = n + (mean(n)*0.08)), size = 3, hjust = -0.2) +
   coord_flip() +
@@ -324,7 +324,7 @@ p <- csf %>%
         axis.ticks.y.right = element_blank()) +
   scale_y_continuous(expand = expansion(mult = c(.01,.10)))
 
-p$data$result <- paste0("<i>", p$data$result, "</i>")
+p$data$results <- paste0("<i>", p$data$results, "</i>")
 ggplotly(p, tooltip = "text") %>% 
   config(displayModeBar = F)
 
@@ -396,16 +396,16 @@ rm(bc,bc_org,merge_bc_org)
 blood_path <- bc_first_isolate %>%
   mutate(desc = case_when(age < 5110 ~ "Pediatric (<14 years old)",
                               TRUE ~ "Adult (>=14 years old)"),
-         result = recode(result,"Streptococcus, beta-haemolytic (not Group A, not Group B)" = "Beta-streptococcus not A, not B")) %>% 
-  group_by(result, desc) %>% 
+         results = recode(results,"Streptococcus, beta-haemolytic (not Group A, not Group B)" = "Beta-streptococcus not A, not B")) %>% 
+  group_by(results, desc) %>% 
   mutate(n = n()) %>% 
-  group_by(result) %>% 
+  group_by(results) %>% 
   mutate(m = n()) %>%
-  distinct(result, desc, n, m)
+  distinct(results, desc, n, m)
 
 p <- blood_path %>%
-  ggplot(aes(reorder(result, m), n, fill = result)) +
-  geom_bar(stat = "identity", aes(text = paste0(result,": ", n))) + 
+  ggplot(aes(reorder(results, m), n, fill = results)) +
+  geom_bar(stat = "identity", aes(text = paste0(results,": ", n))) + 
   facet_wrap(~ desc) +
   geom_text(aes(label = n, y = n + (mean(n)*0.30)), size = 3) +
   labs(x = "",y = "Cases") +
@@ -419,7 +419,7 @@ p <- blood_path %>%
         axis.ticks.y.right = element_blank()) +
   scale_y_continuous(expand = expansion(mult = c(.01, .10)))
 
-p$data$result <- paste0("<i>", p$data$result, "</i>")
+p$data$results <- paste0("<i>", p$data$results, "</i>")
 ggplotly(p, tooltip = "text") %>% 
   config(displayModeBar = F)
 
@@ -427,22 +427,22 @@ rm(blood_path, p)
 ```
 
 ```{r true pathogens by month}
-da <- cbind(month, result = rep("Escherichia coli", 12), n = rep(0))
+da <- cbind(month, results = rep("Escherichia coli", 12), n = rep(0))
 
 df <- bc_first_isolate %>% 
-  select(collection_date_in_month,result) %>% 
-  group_by(collection_date_in_month,result) %>% 
+  select(collection_date_in_month,results) %>% 
+  group_by(collection_date_in_month,results) %>% 
   summarise(n = n(),.groups = "drop")
 
-full_join(df, da, by = c("collection_date_in_month", "result", "n")) %>% 
-  group_by(collection_date_in_month,result) %>% 
+full_join(df, da, by = c("collection_date_in_month", "results", "n")) %>% 
+  group_by(collection_date_in_month,results) %>% 
   summarise(n = sum(n),.groups = "keep") %>% 
   filter(collection_date_in_month %in% last_month$collection_date_in_month) %>%
   pivot_wider(names_from = collection_date_in_month,values_from = n) %>% 
   mutate_all(~replace(., is.na(.), 0)) %>% 
   mutate(Total = rowSums(across(where(is.numeric)))) %>% 
   arrange(-Total) %>%
-  rename("Pathogen" = result) %>% 
+  rename("Pathogen" = results) %>% 
   kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c')) %>% 
   kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>%
   row_spec(0,background = "#FFFF1E") %>% 
@@ -512,14 +512,14 @@ NB: To count total number of blood culture bottle collected, we use the blood cu
 
 ```{r contamination organism by month}
 
-da <- cbind(month,result = rep(c("Bacillus","Coagulase Negative Staphylococcus","Corynebacterium","Streptococcus viridans, alpha-hem.","Micrococcus"),12),n = rep(0,12))             
+da <- cbind(month,results = rep(c("Bacillus","Coagulase Negative Staphylococcus","Corynebacterium","Streptococcus viridans, alpha-hem.","Micrococcus"),12),n = rep(0,12))             
 
 df <- bc_cont_deduplicate %>%
-  select(collection_date_in_month,result) %>% 
-  group_by(collection_date_in_month,result) %>%
+  select(collection_date_in_month,results) %>% 
+  group_by(collection_date_in_month,results) %>%
   summarise(n = n(),.groups = "keep")
   
-  full_join(df, da, by = c("collection_date_in_month", "result", "n")) %>% group_by(collection_date_in_month,result) %>% 
+  full_join(df, da, by = c("collection_date_in_month", "results", "n")) %>% group_by(collection_date_in_month,results) %>% 
   summarise(n = sum(n), .groups = "drop") %>%
   filter(collection_date_in_month %in% last_month$collection_date_in_month) %>% 
   pivot_wider(names_from = collection_date_in_month,values_from = n) %>%
@@ -527,7 +527,7 @@ df <- bc_cont_deduplicate %>%
   adorn_totals("col") %>% # add column total at the end
   #mutate(Total=rowSums(across(where(is.numeric)))) %>% 
   arrange(-Total) %>%
-  rename("Organism" = result) %>% 
+  rename("Organism" = results) %>% 
   kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c')) %>% 
   kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
   row_spec(0,background = "#E5C4FF") %>% 
@@ -596,7 +596,7 @@ Blood culture volume is vital to detect organism growth. For adult patients, two
 ```{r b_volume}
 # create a column to save if blood culture volume is correct, low or high
 b_volume <- data %>%
-  select(age, volume1, volume2, sample, lab_id, collection_date_in_month, result) %>% 
+  select(age, volume1, volume2, sample, lab_id, collection_date_in_month, results) %>% 
   filter(sample == "Blood Culture") %>% 
   distinct(lab_id,.keep_all = T) %>% 
   pivot_longer(c("volume1","volume2"), names_to = "bottle") %>% 
@@ -790,14 +790,14 @@ blank <- cbind(month, 'Bottle A' = rep(0, 12), 'Bottle B' = rep(0, 12), Total = 
     select(-vs) %>% 
     pivot_wider(names_from = "bottle",values_from = "value") %>% 
     group_by(collection_date_in_month) %>% 
-    select(collection_date_in_month,age,result,volume1,volume2)
+    select(collection_date_in_month,age,results,volume1,volume2)
   
   bottle_A <- bottle %>% 
-    filter(!is.na(result),is.na(volume1)) %>% 
+    filter(!is.na(results),is.na(volume1)) %>% 
     summarise('Bottle A' = n()) 
   
   bottle_B <- bottle %>% 
-    filter(!is.na(result), is.na(volume1), is.na(volume2),age >= 5110) %>%
+    filter(!is.na(results), is.na(volume1), is.na(volume2),age >= 5110) %>%
     summarise('Bottle B' = n()) 
   
   
@@ -865,16 +865,16 @@ rm(record)
 organism <- c("Escherichia coli", "Klebsiella pneumoniae", "Acinetobacter","Burkholderia pseudomallei", "Pseudomonas aeruginosa", "Non-fermenting gram negative rods", "Staphylococcus aureus", "Coagulase Negative Staphylococcus", "Cryptococcus")
 
 day_growth <- comment %>% 
-  filter(result %in% organism, !is.na(day_growth)) %>% 
-  group_by(result, day_growth) %>% 
+  filter(results %in% organism, !is.na(day_growth)) %>% 
+  group_by(results, day_growth) %>% 
   count(day_growth)
 
 
 p <- day_growth %>% 
   ggplot(aes(day_growth, n)) + 
-  geom_bar(stat = "identity", width = 0.7, aes(fill = result, text = paste0(result, ": ", n," case(s)", "\nGrowth on day: ", day_growth))) +
+  geom_bar(stat = "identity", width = 0.7, aes(fill = results, text = paste0(results, ": ", n," case(s)", "\nGrowth on day: ", day_growth))) +
   geom_text(aes(label = n, y = n + (mean(n)*0.15)), size = 2.7) +
-  facet_wrap(~ result) +
+  facet_wrap(~ results) +
   labs(y = "Cases", x = "Day") +
   scale_y_continuous(expand = expansion(mult = c(.01, .10)), 
                      labels = scales::label_number(accuracy = 1)) +
@@ -884,7 +884,7 @@ p <- day_growth %>%
         strip.background = element_rect(fill = "#D5DBDB"),
         strip.text = element_text(size = 9))
 
-p$data$result <- factor(paste0("<i>", p$data$result, "</i>"), 
+p$data$results <- factor(paste0("<i>", p$data$results, "</i>"), 
                         levels = c("<i>Escherichia coli</i>", 
                                    "<i>Klebsiella pneumoniae</i>",
                                    "<i>Acinetobacter</i>", 
@@ -980,11 +980,11 @@ month_data <- data %>%
               values_from = collection_date_in_month)
 
 org <- data %>% # from data set select only notifiable organism
-  select(patient_id,result, collection_date_in_month) %>% 
-  filter(result %in% c(org_notifiable)) %>%
+  select(patient_id,results, collection_date_in_month) %>% 
+  filter(results %in% c(org_notifiable)) %>%
   arrange(collection_date_in_month) %>% 
   distinct(patient_id, .keep_all = T) %>% 
-  group_by(result, collection_date_in_month) %>% 
+  group_by(results, collection_date_in_month) %>% 
   mutate(n = sum(n())) %>% 
   select(-patient_id) %>% 
   distinct(.keep_all = T) %>%
@@ -994,15 +994,15 @@ org <- org %>% # adding month with empty data
   add_column(!!!month_data[setdiff(names(month_data), names(org))]) %>% 
   #mutate_if(is.factor, as.character) %>% 
   mutate_all(., ~str_replace(., pattern = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec", '0')) %>% 
-  select(result, order(factor(names(.), levels = month.abb)))
+  select(results, order(factor(names(.), levels = month.abb)))
 
-list(org, data.frame(result = org_notifiable)) %>% 
-  reduce(full_join, by = "result") %>% 
+list(org, data.frame(results = org_notifiable)) %>% 
+  reduce(full_join, by = "results") %>% 
   mutate_all( ~replace(., is.na(.), 0)) %>% 
   mutate_if(is.character, as.numeric) %>% 
   mutate(Total = rowSums(across(where(is.numeric)))) %>% 
   arrange(-Total) %>%
-  rename("Pathogen" = result) %>% 
+  rename("Pathogen" = results) %>% 
   kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c')) %>% 
   kable_styling(bootstrap_options = c("striped", "hover","responsive")) %>% 
   row_spec(0,background = "#FFEB14") %>% 
@@ -1022,24 +1022,24 @@ rm(org_notifiable, org)
 mdr <- data %>% # filter and deduplicate by pateint ID
   arrange(collection_date) %>% 
   distinct(patient_id, .keep_all = T) %>%
-  filter(result %in% c("Staphylococcus aureus", "Escherichia coli", "Klebsiella pneumoniae")) 
+  filter(results %in% c("Staphylococcus aureus", "Escherichia coli", "Klebsiella pneumoniae")) 
 
 MRSA <- mdr %>% # filter S.aurues and resistance to Cloxacillin
-  filter(CLO == "R", result == "Staphylococcus aureus") %>% 
+  filter(CLO == "R", results == "Staphylococcus aureus") %>% 
   mutate(MDR = as.character(recode(CLO, "R" = "MRSA"))) %>% 
-  select(result, MDR, collection_date_in_month) %>% 
-  group_by(result, MDR, collection_date_in_month) %>% count() 
+  select(results, MDR, collection_date_in_month) %>% 
+  group_by(results, MDR, collection_date_in_month) %>% count() 
 
 VRSA <- mdr %>% # filter S.aurues and resistance to VA
-  filter(VAN %in% c("R","I"), result == "Staphylococcus aureus") %>% 
+  filter(VAN %in% c("R","I"), results == "Staphylococcus aureus") %>% 
   mutate(MDR = as.character(recode(VAN, "R" = "VRSA", "I" = "VRSA"))) %>% 
-  select(result, MDR, collection_date_in_month) %>% 
-  group_by(result, MDR, collection_date_in_month) %>% count() 
+  select(results, MDR, collection_date_in_month) %>% 
+  group_by(results, MDR, collection_date_in_month) %>% count() 
 
 ESBL <- mdr %>% # filter E.coli and K.pneumoniae and Cetri and Cefta
-  filter(result %in% c("Escherichia coli", "Klebsiella pneumoniae")) %>%
+  filter(results %in% c("Escherichia coli", "Klebsiella pneumoniae")) %>%
   drop_na(CRO, CAZ) %>% 
-  select(result, CRO, CAZ, collection_date_in_month) %>% 
+  select(results, CRO, CAZ, collection_date_in_month) %>% 
   mutate(CRO = case_when(CRO == "R" ~ 1, 
                          CRO == "I" ~ 1, 
                          CRO == "S" ~ 0),
@@ -1049,14 +1049,14 @@ ESBL <- mdr %>% # filter E.coli and K.pneumoniae and Cetri and Cefta
          MDR = CRO + CAZ,
          MDR =  case_when(MDR >= 1 ~ "ESBL")) %>% 
   filter(!is.na(MDR)) %>% 
-  select(result, MDR, collection_date_in_month) %>% 
-  group_by(result, MDR, collection_date_in_month) %>%
+  select(results, MDR, collection_date_in_month) %>% 
+  group_by(results, MDR, collection_date_in_month) %>%
   count() 
 
 CRE <- mdr %>% # filter E.coli and K.pneumoniae and Imipenem and Meropenem
-  filter(result %in% c("Escherichia coli", "Klebsiella pneumoniae")) %>%
+  filter(results %in% c("Escherichia coli", "Klebsiella pneumoniae")) %>%
   drop_na(IPM, MEM) %>% 
-  select(result, IPM, MEM, collection_date_in_month) %>% 
+  select(results, IPM, MEM, collection_date_in_month) %>% 
   mutate(IPM = case_when(IPM == "R" ~ 1, 
                          IPM == "I" ~ 1, 
                          IPM == "S" ~ 0),
@@ -1066,8 +1066,8 @@ CRE <- mdr %>% # filter E.coli and K.pneumoniae and Imipenem and Meropenem
          MDR = IPM + MEM,
          MDR =  case_when(MDR >= 1 ~ "CRE")) %>% 
   filter(!is.na(MDR)) %>% 
-  select(result, MDR, collection_date_in_month) %>% 
-  group_by(result, MDR, collection_date_in_month) %>%
+  select(results, MDR, collection_date_in_month) %>% 
+  group_by(results, MDR, collection_date_in_month) %>%
   count() 
 
 rbind(ESBL, CRE, MRSA, VRSA) %>% 
@@ -1075,12 +1075,12 @@ rbind(ESBL, CRE, MRSA, VRSA) %>%
   add_column(!!!month_data[setdiff(names(month_data), names(.))]) %>% 
   #mutate_if(is.factor, as.character) %>% 
   mutate_all(., ~ str_replace(., pattern = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec", '0')) %>% 
-  select(result, MDR, order(factor(names(.), levels = month.abb))) %>% 
+  select(results, MDR, order(factor(names(.), levels = month.abb))) %>% 
   mutate_all( ~replace(., is.na(.), 0)) %>% 
   mutate_if(is.character, as.numeric) %>% 
   mutate(Total = rowSums(across(where(is.numeric)))) %>% 
   arrange(-Total) %>%
-  rename("Organism" = result,
+  rename("Organism" = results,
          "Mechanisms" = MDR) %>% 
   kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c','c','c','c')) %>% 
   kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
@@ -1106,7 +1106,7 @@ rm(record)
 ```{r HAI}
 org <- HAI %>% 
   filter(HAI > 48, !is.na(HAI)) %>% 
-  group_by(result, collection_date_in_month) %>% 
+  group_by(results, collection_date_in_month) %>% 
   mutate(n = sum(n())) %>% 
   select(-patient_id:-admission_date, -HAI) %>% 
   distinct(.keep_all = T) %>%
@@ -1116,15 +1116,15 @@ org <- org %>% # adding month with empty data
   add_column(!!!month_data[setdiff(names(month_data), names(org))]) %>% 
   mutate_if(is.factor, as.character) %>% 
   mutate_all(., ~ str_replace(., pattern = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec", '0')) %>% 
-  select(result, order(factor(names(.), levels = month.abb)))
+  select(results, order(factor(names(.), levels = month.abb)))
 
-list(org, data.frame(result = org_in_hos)) %>% 
-  reduce(full_join, by = "result") %>% 
+list(org, data.frame(results = org_in_hos)) %>% 
+  reduce(full_join, by = "results") %>% 
   mutate_all(~replace(., is.na(.), 0)) %>% 
   #mutate_if(is.character, as.numeric) %>% 
   mutate(Total = rowSums(across(where(is.numeric)))) %>% 
   arrange(-Total) %>%
-  rename("Organism" = result) %>% 
+  rename("Organism" = results) %>% 
   kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c','c','c')) %>% 
   kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
   row_spec(0, background = "#FFEB14") %>% 
@@ -1145,44 +1145,44 @@ blank_data <- cbind(month, sample = rep("", 12), n = rep(0, 12))
 
 # Bps isolate number
 bps <- data %>% 
-  select(result) %>% 
-  filter(result == "Burkholderia pseudomallei") %>%
+  select(results) %>% 
+  filter(results == "Burkholderia pseudomallei") %>%
   summarise(n = n())
 
 # Salmonella isolate number
 sal <- data %>% 
-    select(sample,result) %>% 
-    filter(result %in% c("Salmonella Paratyphi A","Salmonella Typhi", "Salmonella")) %>% 
+    select(sample,results) %>% 
+    filter(results %in% c("Salmonella Paratyphi A","Salmonella Typhi", "Salmonella")) %>% 
     summarise(n = n())
 
 # Staphylococcus aureus isolate number and blood culture
 sau <- bc_first_isolate %>% 
-    select(result) %>% 
-    filter(result == "Staphylococcus aureus") %>% 
+    select(results) %>% 
+    filter(results == "Staphylococcus aureus") %>% 
     summarise(n = n())
 
 # Escherichia coli isolate number
 eco <- bc_first_isolate %>% 
-    select(result) %>%  
-    filter(result == "Escherichia coli") %>% 
+    select(results) %>%  
+    filter(results == "Escherichia coli") %>% 
     summarise(n = n())
 
 # Klebsiella pneumoniae isolate number
 kpn <- bc_first_isolate %>% 
-    select(result) %>%  
-    filter(result == "Klebsiella pneumoniae") %>% 
+    select(results) %>%  
+    filter(results == "Klebsiella pneumoniae") %>% 
     summarise(n = n())
 
 # Pseudomonas aeruginosa isolate number
 pse <- bc_first_isolate %>% 
-    select(result) %>% 
-    filter(result == "Pseudomonas aeruginosa") %>% 
+    select(results) %>% 
+    filter(results == "Pseudomonas aeruginosa") %>% 
     summarise(n = n())
 
 # Acinetobacter isolate number
 ac <- bc_first_isolate %>% 
-    select(result) %>% 
-    filter(result == "Acinetobacter") %>% 
+    select(results) %>% 
+    filter(results == "Acinetobacter") %>% 
     summarise(n = n())
 
 rm(month)
@@ -1194,7 +1194,7 @@ There were [`r bps` *Burkholderia pseudomallei*]{style="color:red;font-weight:bo
 if (bps > 0) {
 
 d <- data %>% 
-  filter(result == "Burkholderia pseudomallei") %>%
+  filter(results == "Burkholderia pseudomallei") %>%
   group_by(collection_date_in_month, sample) %>% 
   summarise(n = n(),.groups = "keep") 
 
@@ -1237,9 +1237,9 @@ ggplotly(p, tooltip = "text" ) %>%
 ```{r bps AMR, results='asis'}
 if (bps > 0) {
 data %>% 
-  filter(result %in% "Burkholderia pseudomallei") %>% 
-  select(result, AMC,CAZ,MEM,TMP,GEN) %>%
-  mutate(mo = as.mo(result, info = F)) %>% 
+  filter(results %in% "Burkholderia pseudomallei") %>% 
+  select(results, AMC,CAZ,MEM,TMP,GEN) %>%
+  mutate(mo = as.mo(results, info = F)) %>% 
   bug_drug_combinations() %>%
   rename(Organism = mo, Antibiotic = ab, Total = total) %>% 
   mutate(Antibiotic = ab_name(Antibiotic)) %>% 
@@ -1264,7 +1264,7 @@ There were [`r sal` *Salmonella species*]{style="color:red;font-weight:bold;"} r
 ```{r Salmonella}
 if (sal > 0) {
 d <- data %>% 
-  filter(result %in% c("Salmonella Paratyphi A","Salmonella Typhi", "Salmonella")) %>%
+  filter(results %in% c("Salmonella Paratyphi A","Salmonella Typhi", "Salmonella")) %>%
   group_by(collection_date_in_month, sample) %>% 
   summarise(n = n(),.groups = "keep")
 
