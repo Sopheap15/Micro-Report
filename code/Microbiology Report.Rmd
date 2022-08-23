@@ -1,5 +1,5 @@
 ---
-title: "<center><p style='font-weight:bold;'>`r dic$hospital_name` <br> Microbiology Laboratory Report<br>`r format(dic$start_date,'%d/%b')`-                     `r format(max(data$collection_date),'%d/%b/%Y')`</p><p style='color:#FF0000;'>\n**********</p></center>"
+title: "`r dic$hospital_name` <br> Microbiology Laboratory Report<br>`r format(dic$start_date,'%d/%b')`-                     `r format(max(data$collection_date),'%d/%b/%Y')`</p><p style='color:#FF0000;'>\n**********"
 
 output:
   html_document:
@@ -25,6 +25,36 @@ knitr::opts_chunk$set(echo = F,
 .table-hover > tbody > tr:hover { 
   background-color: #f4f442;
 }
+
+h1.title {
+  font-weight: bold;
+  text-align: center;
+}
+.tocify {
+  border-color: red;
+  border-radius: 8px;
+}
+
+.figure:hover{
+  box-shadow: 0 0 4px 2px rgba(0, 140, 186, 0.5);
+}
+
+#cont_rat, #true_path {
+  text-align: center;
+}
+.end_report {
+  text-align: right;
+}
+
+.style {
+color: red;
+font-weight: bold;
+}
+
+.svg-container {
+border-color: 2px red;
+}
+
 ```
 
 ## 1. Introduction {.tabset}
@@ -41,37 +71,28 @@ Culture media including blood culture bottles, agar plates and biochemical tubed
 
 Clinical laboratories use a manual blood culture system (CMML). Blood culture bottles are registered and staff measure blood culture volume by weighing the bottles. Air venting needles are inserted before incubation for 7 days. After overnight incubation at 35^o^C, laboratory staff inspect bottles daily for signs of organism growth such as turbidity, bubbles or hemolysis. Staff perform blind sub culture and Gram stain at 24h and terminal subculture (or Gram stain) at day 7. If positive, laboratory staff notify clinician immediately.
 
-<div>
-
+::: {#blood_process .figure}
 ![Fig 1. Manual blood culture bottle processing](Images/Lab_manual_bl_processing.png){width="80%"}
-
-</div>
+:::
 
 #### b. Bacterial identification
 
 If organisms are detected, microbiologists will perform further identification by using Standard Operating Procedures and Job aids. Example, Dr. Ellen Jo Baron and DMDP flowcharts for identification of *Burkholderia pseudomallei* and Staphylococci.
 
-<div>
-
+::: {#bacteria_id .figure}
 ![Fig 2. Identification of Burkholderia pseudomallei](Images/ID_bps.png){width="80%"}
+:::
 
-</div>
-
-<!-- <div> -->
-
-<!-- ![Fig 3. Identification of Staphylococci](Images/ID_staph.png){width="80%"} -->
-
-<!-- </div> -->
 
 #### c. Antibiotic Susceptibility Testing
 
 Antibiotic Susceptibility Testing follows Clinical and Laboratory Standards Institute [(CLSI)](https://clsi.org) performance standards, M100 and M02 for disk diffusion testing. MIC using gradient diffusion (Biomerieux) is used for selected antibiotic organism combinations.
 
-<div>
+:::{#AST .figure}
 
 ![Fig 3. Antibiotic Susceptibility Testing and interpretation](Images/AST.png){width="80%"}
 
-</div>
+:::
 
 ### Data management
 
@@ -79,10 +100,9 @@ Patient information and laboratory data are registered in the Cambodian laborato
 
 ## 2. Patient demographic
 
-We assume a patient receives care at a hospital (inpatients and outpatients) or private clinics and has only one patient identification number. We removed duplicates to find the actual number of patient requests. Thus, we have: [**`r dedup_by_pid %>% count() %>% mutate_if(is.numeric,format,big.mark=",")`** patient(s)]{style="color:red;font-weight:bold;"}.
+We assume a patient receives care at a hospital (inpatients and outpatients) or private clinics and has only one patient identification number. We removed duplicates to find the actual number of patient requests. Thus, we have: <span class="style"> `r dedup_by_pid %>% count() %>% mutate_if(is.numeric,format,big.mark=",")` patient(s)</span>
 
-\newpage  
-
+\newpage
 
 ### 2.1. Gender
 
@@ -113,7 +133,7 @@ dedup_by_pid %>%
 
 ### 2.2. Age
 
-Distribution of age group and gender. We accepted the range 0 to 110 years old. We have [**`r dedup_by_pid %>% filter(age>=0, age<=40150) %>% count() %>% mutate_if(is.numeric,format, big.mark = ",")`** patient(s)]{style="color:red; font-weight:bold;"}
+Distribution of age group and gender. We accepted the range 0 to 110 years old. We have <span class="style">`r dedup_by_pid %>% filter(age>=0, age<=40150) %>% count() %>% mutate_if(is.numeric,format, big.mark = ",")` patient(s)</span>
 
 ```{r age distribution,fig.height=4, warning=FALSE}
 p <- dedup_by_pid %>%
@@ -143,10 +163,12 @@ ggplotly(p, tooltip = "text") %>%
 
 rm(p)
 ```
+
 \newpage
+
 ## 3. Microbiology specimen
 
-A patient can have more than one microbiology specimen collected. We assume one specimen has one unique sample identification number. After removing duplicates, we have: [**`r dedup_by_id_stype %>% count() %>% mutate_if(is.numeric,format,big.mark=",")`** sample(s)]{style="color:red; font-weight:bold;"}. We stratify data by month and sample type
+A patient can have more than one microbiology specimen collected. We assume one specimen has one unique sample identification number. After removing duplicates, we have: <span class="style">`r dedup_by_id_stype %>% count() %>% mutate_if(is.numeric,format,big.mark=",")` sample(s)</span>. We stratify data by month and sample type
 
 ```{r specimen color}
 specimen_color <- c("Blood Culture" = "#F7766D", # blood red
@@ -279,16 +301,13 @@ left_join(., spe) %>%
 left_join(reject_com, total_spe) %>% 
   select(Specimen = sample, `Total specimen` = total, `Total reject` = n, Reasons = reject) %>% 
   
-  kable(align = c("l", 'c', 'c','l')) %>% 
+  kable(align = c("l", 'c', 'c','l'), escape = F) %>% 
   kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive", "bordered")) %>%
-  row_spec(0,background = "#FFFF1E") %>% 
-  kableExtra::collapse_rows(1:2, valign = "middle")
+  kableExtra::collapse_rows(1:2, valign = "middle") %>% 
+  row_spec(0,background = "#FFFF1E")
 }
 rm(spe, reject_com, total_spe)
 ```
-
-
-
 
 ## 4. Cerebrospinal fluid (CSF) pathogens isolated
 
@@ -298,7 +317,7 @@ csf <- data %>%
   summarise(n = n())
 ```
 
-There were [`r csf` CSF]{style="color:red; font-weight:bold;"} positive.
+There were <span class="style">`r csf` CSF</span> positive.
 
 ```{r CSF}
 if (csf > 0) {
@@ -337,13 +356,13 @@ Blood culture is defined as a critical specimen. Data from blood culture can be 
 
 ### 5.1. Blood culture request by patient and true pathogen rate
 
-Patient identification and blood samples were filtered to define the number of patient requests by month. We have [**`r data %>% filter(sample=="Blood Culture") %>% distinct(patient_id, keep.all=T) %>% summarise (n=n()) %>% mutate_if(is.numeric, format, big.mark=",")`** patient(s)]{style="color:red;font-weight:bold;"} blood culture requests. Calculate true pathogen rate:
+Patient identification and blood samples were filtered to define the number of patient requests by month. We have <span class= "style">`r data %>% filter(sample=="Blood Culture") %>% distinct(patient_id, keep.all=T) %>% summarise (n=n()) %>% mutate_if(is.numeric, format, big.mark=",")` patient(s)</span> blood culture requests. Calculate true pathogen rate:
 
-<center>
+:::{#true_path .figure}
 
 ![formula calculate true pathogen](Images/True_pathogen_formula.png){width="50%"}
 
-</center>
+:::
 
 The true pathogen rate expected range is 6% to 12%.
 
@@ -451,17 +470,17 @@ full_join(df, da, by = c("collection_date_in_month", "results", "n")) %>%
 rm(da,df)
 ```
 
-\newpage  
+\newpage
 
 ### 5.3. Blood culture bottle collected and contamination rate
 
 Blood culture contamination can lead to inappropriate treatment of patients, over use of resources and a workload burden. Microbiologists are obliged to monitor and report contamination rate regularly to specimen collectors. We defined contaminant as *Coagulase negative Staphylococci*, *Corynebacterium sp.*, *Streptococcus viridans, alpha-hem.*, *Micrococcus sp.*.
 
-<center>
+:::{#cont_rat .figure}
 
 ![Contamination_formula](Images/Contamination_formula.png "contamination"){width="343"}
 
-</center>
+:::
 
 The expected contamination rate is \< 3%.
 
@@ -662,35 +681,6 @@ rm(t_bottle,ad_volume)
 
 ```
 
-<!-- Blood volume correlation -->
-
-```{r adult blood volume correlation, eval=F}
-# correlation between bottle1 and bottle2. NA removed
-ad_bottle <- data %>%
-  filter(sample == "Blood Culture") %>% 
-  distinct(lab_id,.keep_all = T) %>% 
-  filter(age >= 14, volume1 != "NA", volume2 != "NA")
-
-# Total number of bottle after remove NA and age >=14
-t_bottle <- ad_bottle %>% 
-  count()
-
-#plot data
-ad_bottle %>% 
-  ggplot(aes(volume1,volume2)) +
-  geom_point(color = "#FF7F50",alpha = 0.9) +
-  geom_smooth(method = 'loess') +
-  labs(x = "Bottle A, blood volume (ml)", y = "Bottle B, blood volume (ml)", 
-       title = paste0("Correlation of blood culture volume in bottle A and bottle B \n (total=",format(t_bottle*2,big.mark = ",")," bottles)")) +
-  theme_classic() +
-  theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
- xlim(0,14) + 
- ylim(0,14)
-
-rm(t_bottle)
-
-```
-
 <!-- Adult only one bottle -->
 
 ```{r adult patient collects one blood culture bottle}
@@ -841,11 +831,12 @@ if (miss_bv > 0) {
 rm(bottle,bottle_A,bottle_B,missing_bv,miss_bv,b_volume, blank)
 ```
 
-\newpage  
+\newpage
 
 ### 5.6. Blood culture day of positivity
 
 Microbiology laboratories always report the day of blood culture positivity in the patient report comment. We present the common pathogens isolated.
+
 ```{r results='asis'}
 
 record <- comment %>% filter(is.na(day_growth)) %>% count()
@@ -901,7 +892,7 @@ ggplotly(p, tooltip = "text") %>%
 
 ```
 
-\newpage  
+\newpage
 
 ### 5.7. Blood culture TurnAround Time
 
@@ -1134,7 +1125,7 @@ rm(org_in_hos, org, month_data, HAI)
 
 ```
 
-\newpage  
+\newpage
 
 ## 7. *Burkholderia pseudomallei (Bps)*
 
@@ -1255,7 +1246,7 @@ data %>%
 }
 ```
 
-\newpage  
+\newpage
 
 ## 8. Salmonella
 
@@ -1304,7 +1295,9 @@ We filter [blood culture]{style="color:red"} by first pathogen isolated in an pe
 
 ### 9.1. *Staphylococcus aureus*
 
-There were [`r sau` *Staphylococcus aureus*]{style="color:red;font-weight:bold;"} reported.
+There were <span class = "style">`r sau` *Staphylococcus aureus* </span>
+
+[`r sau` *Staphylococcus aureus*]{style="color:red;font-weight:bold;"} reported.
 
 ```{r S.aureus cAST}
 if (sau > 0) {
@@ -1435,11 +1428,12 @@ We gratefully acknowledge support from `r dic$hospital_name`, Bureau of Medical 
 
 ------------------------------------------------------------------------
 
-```{css}
-<p align="right";> Reported by <br> 
+
+<p class="end_report"> Reported by <br> 
 `r dic$report_by` <br><br><br>
 `r format(Sys.Date(),"%d-%b-%Y")`</p>
-```
+
+
 ```{r clear objects}
 rm(list = ls())
 ```
