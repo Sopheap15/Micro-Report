@@ -18,6 +18,7 @@ knitr::opts_chunk$set(echo = F,
                       tidy = T,
                       comment = F,
                       fig.align = 'center',
+                      results='asis',
                       collapse = T)
 ```
 
@@ -49,10 +50,6 @@ h1.title {
 .style {
 color: red;
 font-weight: bold;
-}
-
-.svg-container {
-border-color: 2px red;
 }
 
 ```
@@ -557,7 +554,7 @@ df <- bc_cont_deduplicate %>%
 
 ### 5.4. Blood culture true pathogen rate and contamination rate by sample sources
 
-```{r true pathogens and contatamination, results='asis'}
+```{r true pathogens and contatamination}
 # finding patient request by wards
 request <- data %>% 
   filter(sample == "Blood Culture") %>% 
@@ -618,6 +615,7 @@ b_volume <- data %>%
   select(age, volume1, volume2, sample, lab_id, collection_date_in_month, results) %>% 
   filter(sample == "Blood Culture") %>% 
   distinct(lab_id,.keep_all = T) %>% 
+  mutate_at(vars(starts_with("volume")), as.numeric) %>% 
   pivot_longer(c("volume1","volume2"), names_to = "bottle") %>% 
   mutate(vs = case_when(age<365 & value <0.5   ~  "Too low",  # Pediatric
                         age<365 & value <=6    ~  "Correct",
@@ -1295,23 +1293,20 @@ We filter [blood culture]{style="color:red"} by first pathogen isolated in an pe
 
 ### 9.1. *Staphylococcus aureus*
 
-There were <span class = "style">`r sau` *Staphylococcus aureus* </span>
-
-[`r sau` *Staphylococcus aureus*]{style="color:red;font-weight:bold;"} reported.
+There were <span class = "style">`r sau` *Staphylococcus aureus* </span> reported.
 
 ```{r S.aureus cAST}
 if (sau > 0) {
-da <- bc_first_isolate %>% 
+bc_first_isolate %>% 
   filter(mo %in% c("B_STPHY_AURS")) %>%
   select(mo,CLO,CZO,ERY,CLI,TCY,CHL,TMP,VAN) %>%
-  bug_drug_combinations() %>%
+  bug_drug_combinations() %>% 
   rename(Organism = mo, Antibiotic = ab, Total = total) %>% 
   mutate(Antibiotic = ab_name(Antibiotic)) %>% 
   select(Antibiotic,S,I,R,Total) %>% 
   filter(Total > 0) %>% 
   kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
   kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
- # add_header_above(c("Staphylococcus aureus"=5),bold = T,italic = T,background ="#FFA500") %>% 
   footnote("  S: susceptible, I: intermediate, R: resistant
            Cloxacillin resistance: MRSA", general_title = "") %>% 
   row_spec(0,background = "#FFA500") %>% ##FFE4E1 good color pink
@@ -1337,7 +1332,6 @@ bc_first_isolate %>%
   select(Antibiotic,S,I,R,Total) %>% 
   kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
   kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
-  #add_header_above(c("Escherichia coli"=5),bold = T,italic = T,background ="#FFA500") %>% 
   footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
   row_spec(0,background = "#FFA500") %>% 
   column_spec(2:5, width = "5em") %>% 
