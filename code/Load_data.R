@@ -8,11 +8,8 @@ library("plotly")
 #library("Hmisc")
 
 # Month -----
-month <-
-  data.frame(collection_date_in_month = factor(
-    c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
-    levels = month.abb
-  ))
+month <- data.frame(collection_date_in_month = factor(c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug",
+      "Sep", "Oct", "Nov", "Dec"), levels = month.abb))
 
 # list of organism in notifiable----
 org_in_hos <- c(
@@ -81,23 +78,24 @@ read_file <- function(path) {
         "metronidazole",
         "oral_cephalosporins"
       )
-    )) 
-    
+    ))
 }
+
 # format date
-format_date <- function(d){
+format_date <- function(d) {
   if (is.character(d$collection_date) == TRUE) {
-    d %>% 
-      mutate_at(vars(contains("date")), ~as.POSIXct(., 
-                                                    format="%d-%B-%Y %H:%M",
-                                                    tz="GMT") 
-                )
+    d %>%
+      mutate_at(vars(contains("date")),
+                ~ as.POSIXct(.,
+                             format = "%d-%B-%Y %H:%M",
+                             tz = "GMT"))
   } else if (is.numeric(d$collection_date) == TRUE) {
     d %>%
-      mutate_at(vars(contains("date")), ~ as.POSIXct(.* (60*60*24),
-                                                     origin="1899-12-30",
-                                                     tz="GMT"))
-  }else{
+      mutate_at(vars(contains("date")),
+                ~ as.POSIXct(. * (60 * 60 * 24),
+                             origin = "1899-12-30",
+                             tz = "GMT"))
+  } else{
     "Datetime is in correct format"
   }
   
@@ -108,24 +106,27 @@ data <- list.files(path = "data",
                    full.names = T) %>%
   purrr::discard(file_name, .p = ~ stringr::str_detect(., "~")) %>%
   map_df(read_file) %>%
-  mutate(sex = factor(sex)) %>% 
+  mutate(sex = factor(sex)) %>%
   format_date()
- 
+
 data <- data %>% # Filter lab name
   filter(lab_name == ifelse(dic$short_name == "All", lab_name, dic$short_name))
 
 data <- data %>% # Filter date
   arrange(collection_date) %>%
-  mutate(col_date = as.Date(collection_date)) %>% 
+  mutate(col_date = as.Date(collection_date)) %>%
   filter(
-    col_date >= dic$start_date, 
-    col_date <= ifelse(dic$end_date >= max(col_date, na.rm = T),
-                              max(col_date, na.rm = T), 
-                              dic$end_date)
-  ) %>% 
+    col_date >= dic$start_date,
+    col_date <= ifelse(
+      dic$end_date >= max(col_date, na.rm = T),
+      max(col_date, na.rm = T),
+      dic$end_date
+    )
+  ) %>%
   select(-col_date)
 
-data <- data %>% # Recode specimen and mutate column collection_date_in month
+data <-
+  data %>% # Recode specimen and mutate column collection_date_in month
   mutate(
     collection_date_in_month = factor(format(collection_date, "%b"),
                                       levels = month.abb),
@@ -139,9 +140,14 @@ data <- data %>% # Recode specimen and mutate column collection_date_in month
 
 
 data <- data %>% # Deduplicate data
-  distinct(patient_id, lab_id, collection_date, sample, results, .keep_all = T)
+  distinct(patient_id,
+           lab_id,
+           collection_date,
+           sample,
+           results,
+           .keep_all = T)
 
-write_rds(data, compress = "none", "Outputs/clean_data")
+#write_rds(data, compress = "none", "Outputs/clean_data")
 
 #read_rds("Outputs/clean_data")
 
@@ -154,7 +160,12 @@ reject_spe <- data %>% # reject specimen
          results,
          comment,
          reject_comment) %>%
-  distinct(patient_id, lab_id, collection_date, sample, results, .keep_all = T)
+  distinct(patient_id,
+           lab_id,
+           collection_date,
+           sample,
+           results,
+           .keep_all = T)
 
 
 # Age group
@@ -341,10 +352,12 @@ TAT <- data %>%
          sample,
          results,
          comment) %>%
-  filter(!is.na(results),
-         sample == "Blood Culture",
-         !is.na(comment),
-         !results  %in% c("No growth")) %>%
+  filter(
+    !is.na(results),
+    sample == "Blood Culture",
+    !is.na(comment),
+    !results  %in% c("No growth")
+  ) %>%
   distinct(patient_id, results, .keep_all = T) %>%
   mutate(
     comment_by = str_extract(str_to_lower(comment),
@@ -356,4 +369,3 @@ TAT <- data %>%
   ) %>%
   filter(!is.na(comment_by)) %>%
   mutate(primary_report = lubridate::dmy_hm(paste(date, time), quiet = TRUE))
-

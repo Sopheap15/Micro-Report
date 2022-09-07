@@ -18,7 +18,7 @@ knitr::opts_chunk$set(echo = F,
                       tidy = T,
                       comment = F,
                       fig.align = 'center',
-                      results='asis',
+                      results = 'asis',
                       collapse = T)
 ```
 
@@ -68,8 +68,9 @@ Culture media including blood culture bottles, agar plates and biochemical tubed
 
 Clinical laboratories use a manual blood culture system (CMML). Blood culture bottles are registered and staff measure blood culture volume by weighing the bottles. Air venting needles are inserted before incubation for 7 days. After overnight incubation at 35^o^C, laboratory staff inspect bottles daily for signs of organism growth such as turbidity, bubbles or hemolysis. Staff perform blind sub culture and Gram stain at 24h and terminal subculture (or Gram stain) at day 7. If positive, laboratory staff notify clinician immediately.
 
+
 ::: {#blood_process .figure}
-![Fig 1. Manual blood culture bottle processing](Images/Lab_manual_bl_processing.png){width="80%"}
+![Fig 1. Manual blood culture bottle processing](../images/Lab_manual_bl_processing.png){width="80%"}
 :::
 
 #### b. Bacterial identification
@@ -77,7 +78,7 @@ Clinical laboratories use a manual blood culture system (CMML). Blood culture bo
 If organisms are detected, microbiologists will perform further identification by using Standard Operating Procedures and Job aids. Example, Dr. Ellen Jo Baron and DMDP flowcharts for identification of *Burkholderia pseudomallei* and Staphylococci.
 
 ::: {#bacteria_id .figure}
-![Fig 2. Identification of Burkholderia pseudomallei](Images/ID_bps.png){width="80%"}
+![Fig 2. Identification of Burkholderia pseudomallei](../images/ID_bps.png){width="80%"}
 :::
 
 
@@ -87,7 +88,7 @@ Antibiotic Susceptibility Testing follows Clinical and Laboratory Standards Inst
 
 :::{#AST .figure}
 
-![Fig 3. Antibiotic Susceptibility Testing and interpretation](Images/AST.png){width="80%"}
+![Fig 3. Antibiotic Susceptibility Testing and interpretation](../images/AST.png){width="80%"}
 
 :::
 
@@ -357,7 +358,7 @@ Patient identification and blood samples were filtered to define the number of p
 
 :::{#true_path .figure}
 
-![formula calculate true pathogen](Images/True_pathogen_formula.png){width="50%"}
+![formula calculate true pathogen](../images/True_pathogen_formula.png){width="50%"}
 
 :::
 
@@ -475,7 +476,7 @@ Blood culture contamination can lead to inappropriate treatment of patients, ove
 
 :::{#cont_rat .figure}
 
-![Contamination_formula](Images/Contamination_formula.png "contamination"){width="343"}
+![Contamination_formula](../images/Contamination_formula.png "contamination"){width="70%"}
 
 :::
 
