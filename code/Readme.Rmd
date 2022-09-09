@@ -73,8 +73,7 @@ Users can download the whole folder from Github with click on code button and th
 
 ## 6. Analysis
 
--   Ensure it has folder *data* and *output*
--   Adjust in dictionary for hospital, date to analyse, For end date, the default is 31-12-2021. It will automatic analyse based on the last date of column collection date in data.
+-   Adjust in dictionary for hospital, date to analyse, For end date, the default is 31-12-202_. It will automatic analyse based on the last date of column collection date in data.
 -   Drop your data from CamLIS *Bacteriology Report.xlsx* in folder *data*
 -   Double click on \*Microbiology Report\_'Date'.Rprof
 -   Open Run.R
