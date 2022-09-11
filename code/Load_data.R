@@ -5,11 +5,13 @@ library("kableExtra")
 library("AMR")
 library("readxl")
 library("plotly")
-#library("Hmisc")
+# library("Hmisc")
 
 # Month -----
-month <- data.frame(collection_date_in_month = factor(c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug",
-      "Sep", "Oct", "Nov", "Dec"), levels = month.abb))
+month <- data.frame(collection_date_in_month = factor(
+  c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
+  levels = month.abb
+))
 
 # list of organism in notifiable----
 org_in_hos <- c(
@@ -95,10 +97,9 @@ format_date <- function(d) {
                 ~ as.POSIXct(. * (60 * 60 * 24),
                              origin = "1899-12-30",
                              tz = "GMT"))
-  } else{
+  } else {
     "Datetime is in correct format"
   }
-  
 }
 
 data <- list.files(path = "data",
@@ -147,15 +148,15 @@ data <- data %>% # Deduplicate data
            results,
            .keep_all = T)
 
-#write_rds(data, compress = "none", "Outputs/clean_data")
+# write_rds(data, compress = "none", "Outputs/clean_data")
 
-#read_rds("Outputs/clean_data")
+# read_rds("Outputs/clean_data")
 
 
 reject_spe <- data %>% # reject specimen
   select(patient_id,
          lab_id,
-         collection_date ,
+         collection_date,
          sample,
          results,
          comment,
@@ -187,16 +188,16 @@ data <- data %>%
   filter(!is.na(results)) %>%
   mutate(
     results = case_when(
-      str_detect(results, "^Micrococcus") == TRUE ~ "Micrococcus",
-      str_detect(results, "^Baci(\\w+)(?!(.+)?anth(\\w+))") == TRUE ~ "Bacillus",
-      str_detect(results, "^Cory(\\w+)(?!(.+)?diph(\\w+))") == TRUE ~ "Corynebacterium",
-      str_detect(results, "Ent\\w+ales.*sp") == TRUE ~ "Enterobacter",
-      str_detect(results, "Ent\\w+ales.*acae") == TRUE ~ "Enterobacter cloacae",
-      str_detect(results, "Ent\\w+ales.*rans") == TRUE ~ "Pantoea agglomerans",
-      str_detect(results, "Ent\\w+ales.*genes") == TRUE ~ "Klebsiella aerogenes",
-      str_detect(results, "Ent\\w+ales.*genes") == TRUE ~ "Klebsiella aerogenes",
-      str_detect(results, "Ent\\w+ales.*zakii") == TRUE ~ "Cronobacter sakazakii",
-      #str_detect(results, "Streptococcus anginosus group") == TRUE ~ "Streptococcus anginosus",
+      str_detect(results, "(?i)Micrococcus") ~ "Micrococcus",
+      str_detect(results, "(?i)Baci(\\w+)(?!(.+)?anth(\\w+))") ~ "Bacillus",
+      str_detect(results, "(?i)Cory(\\w+)(?!(.+)?diph(\\w+))") ~ "Corynebacterium",
+      str_detect(results, "(?i)Ent\\w+ales.*sp") ~ "Enterobacter",
+      str_detect(results, "(?i)Ent\\w+ales.*acae") ~ "Enterobacter cloacae",
+      str_detect(results, "(?i)Ent\\w+ales.*rans") ~ "Pantoea agglomerans",
+      str_detect(results, "(?i)Ent\\w+ales.*genes") ~ "Klebsiella aerogenes",
+      str_detect(results, "(?i)Ent\\w+ales.*genes") ~ "Klebsiella aerogenes",
+      str_detect(results, "(?i)Ent\\w+ales.*zakii") ~ "Cronobacter sakazakii",
+      # str_detect(results, "Streptococcus anginosus group") == TRUE ~ "Streptococcus anginosus",
       TRUE ~ results
     )
   )
@@ -204,20 +205,20 @@ data <- data %>%
 # Remove unusual string and convert to standard name
 data <- data %>%
   mutate(
-    results = gsub("(\\s)?sp(p|.)?$", "", results),
+    results = str_remove(results, "(\\s)?sp(p|.)?$"),
     # remove sp. or spp.
-    results = gsub("(\\s)?\\d$", "", results),
+    results = str_remove(results, "(\\s)?\\d$"),
     # remove number
-    results = gsub("^[Pp]resumptive", "", results),
+    results = str_remove(results, "^[Pp]resumptive"),
     # remove word presumptive
-    results = gsub("(\\s)?.not albicans$", "", results),
+    results = str_remove(results, "(\\s)?.not albicans$"),
     # remove word .not albicans
-    results = gsub("(\\s)?\\(rods\\)$", "", results),
+    results = str_remove(results, "(\\s)?\\(rods\\)$"),
     # remove word rods
-    results = gsub("non-[tT]yphi$|non-[tT]yphi/non-[pP]aratyphi$", "", results),
-    results = gsub(",(\\s)?$", "", results),
+    results = str_remove(results, "non-[tT]yphi$|non-[tT]yphi/non-[pP]aratyphi$"),
+    results = str_remove(results, ",(\\s)?$"),
     results = trimws(results, "both")
-    #mo = as.mo(results, info = F) # convert to standard name
+    # mo = as.mo(results, info = F) # convert to standard name
   )
 
 # Convert antibiotic name to standard
@@ -296,7 +297,7 @@ HAI <- data %>% # from dataset select only notifiable organism
   filter(sample == "Blood Culture", results %in% org_in_hos) %>%
   mutate(HAI = as.numeric(collection_date - admission_date)) %>%
   arrange(collection_date_in_month) %>%
-  distinct(patient_id , .keep_all = T)
+  distinct(patient_id, .keep_all = T)
 
 # Clean comment----
 comment <- data %>%
@@ -356,7 +357,7 @@ TAT <- data %>%
     !is.na(results),
     sample == "Blood Culture",
     !is.na(comment),
-    !results  %in% c("No growth")
+    !results %in% c("No growth")
   ) %>%
   distinct(patient_id, results, .keep_all = T) %>%
   mutate(
@@ -365,6 +366,7 @@ TAT <- data %>%
     comment_by = str_replace(comment_by,
                              pattern = "(die[d]|dead) (on)? \\d+[/ ,.-]\\d+[/ ,.-]\\d+", ""),
     date = str_extract(comment_by, pattern = "\\d+[/ ,.-]\\d+[/ ,.-]\\d+"),
+    
     time = str_extract(comment_by, pattern = "\\d+[ : .;](\\s)?\\d+(\\s)?([AaPp][Mm])?")
   ) %>%
   filter(!is.na(comment_by)) %>%
