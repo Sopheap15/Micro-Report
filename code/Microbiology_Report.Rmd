@@ -1148,7 +1148,7 @@ bps <- data %>%
 # Salmonella isolate number
 sal <- data %>% 
     select(sample,results) %>% 
-    filter(results %in% c("Salmonella Paratyphi A","Salmonella Typhi", "Salmonella")) %>% 
+    filter(str_detect(results, "(?i).*salmonella.*")) %>% 
     summarise(n = n())
 
 # Staphylococcus aureus isolate number and blood culture
@@ -1260,7 +1260,7 @@ There were [`r sal` *Salmonella species*]{style="color:red;font-weight:bold;"} r
 ```{r Salmonella}
 if (sal > 0) {
 d <- data %>% 
-  filter(results %in% c("Salmonella Paratyphi A","Salmonella Typhi", "Salmonella")) %>%
+  filter(str_detect(results, "(?i).*salmonella.*")) %>% 
   group_by(collection_date_in_month, sample) %>% 
   summarise(n = n(),.groups = "keep")
 
