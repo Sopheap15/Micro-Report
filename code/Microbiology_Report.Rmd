@@ -181,19 +181,20 @@ specimen_color <- c("Blood Culture" = "#F7766D", # blood red
                                )
 ```
 
-```{r microbiology sample by month}
+```{r microbiology sample by month, fig.height=8}
 # fig.height=8
 # sample by month from site
 sample_by_month <- dedup_by_id_stype %>% 
   select(collection_date_in_month, sample) %>% 
   group_by(collection_date_in_month) %>% 
-  count(sample) 
+  count(sample) %>% 
+  mutate(m = ifelse(n > mean(n), mean(n)*0.6, mean(n)*0.3))
 
 # plot bar chart
 p <- sample_by_month %>% 
   ggplot(aes(reorder(sample, n), n, fill = sample)) + 
   geom_bar(stat = "identity", aes(text = paste0(sample, ":", n))) +
-  geom_text(aes(label = n, y = n + (mean(n)*0.40)), size = 2.5) +
+  geom_text(aes(label = n, y = n + m), size = 2.5) +
   labs(x = "", y = "") +
   coord_flip() + 
   facet_wrap(~ collection_date_in_month) +
@@ -228,7 +229,7 @@ p <- dedup_by_id_stype %>%
   mutate(total = sum(n)) %>% 
   ggplot(aes(reorder(sample, n), n, fill = sample)) + 
   geom_bar(stat = "identity", aes(text = paste0(sample,": ",n))) + 
-  geom_text(aes(label = n, y = n + (mean(total)*0.09)), size = 2.4) +
+  geom_text(aes(label = n, y = n + (mean(total)*0.1)), size = 2.4) +
   coord_flip() +
   facet_wrap(~ reorder(paste0(sample_source,"\n(Total = ", total,")"), -total), ncol = 3) +
   labs(x = "", y = "Count") +
@@ -265,11 +266,17 @@ spe <- dedup_by_id_stype %>%
 
 
 reject_com <- reject_spe %>% # change word to no sample or no label
-  mutate_at(vars(comment, reject_comment), ~str_replace_all(., pattern = "\u200B","")) %>% 
-  mutate_at(vars(comment, reject_comment), ~ifelse(str_detect(., no_sample) == TRUE,
-                                                     "no sample", .)) %>%
-  mutate_at(vars(comment, reject_comment), ~ifelse(str_detect(., no_label) == TRUE,
-                                                     "no label", .))
+  mutate_at(vars(comment, reject_comment),
+            ~ str_replace_all(., pattern = "\u200B", "")) %>%
+  mutate_at(vars(comment, reject_comment),
+            ~ ifelse(str_detect(., no_sample) == TRUE,
+                     "no sample", .)) %>%
+  mutate_at(vars(comment, reject_comment),
+            ~ ifelse(str_detect(., no_label) == TRUE,
+                     "no label", .)) %>% 
+  mutate_at(vars(comment, reject_comment), 
+            ~ ifelse(str_detect(., "specimen")==TRUE,
+                     "no sample",.))
 
 reject_com <- reject_com %>% 
   mutate(reject = str_extract(str_to_lower(comment), ">.*10.*epi.*lpf|no sample|no label"),
@@ -330,7 +337,7 @@ p <- csf %>%
   ggplot(aes(reorder(results, n), n, fill = results)) + 
   geom_bar(stat = "identity", width = 0.5, aes(text = paste0(results,": ",n))) + 
   facet_wrap(~desc) +
-  geom_text(aes(label = n, y = n + (mean(n)*0.08)), size = 3, hjust = -0.2) +
+  geom_text(aes(label = n, y = n + (mean(n)*0.1)), size = 3, hjust = -0.2) +
   coord_flip() +
   labs(x = "", y = "Cases") +
   theme_bw() +

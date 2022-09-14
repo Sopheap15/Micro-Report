@@ -105,7 +105,7 @@ format_date <- function(d) {
 
 data <- list.files(
   path = "data",
-  pattern = "[Bb]ac.*port.*.xls(x)?",
+  pattern = ".*[Bb]ac.*port.*.xls(x)?",
   full.names = T
 ) %>%
   purrr::discard(file_name, .p = ~ stringr::str_detect(., "~")) %>%
