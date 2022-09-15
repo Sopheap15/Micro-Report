@@ -282,8 +282,8 @@ reject_com <- reject_spe %>% # change word to no sample or no label
             ~ ifelse(str_detect(., no_label) == TRUE,
                      "no label", .)) %>% 
   mutate_at(vars(comment, reject_comment), 
-            ~ ifelse(str_detect(., "specimen")==TRUE,
-                     "no sample",.))
+            ~ ifelse(str_detect(., "(?i)no specimen")==TRUE,
+                     "no sample", .))
 
 reject_com <- reject_com %>% 
   mutate(reject = str_extract(str_to_lower(comment), ">.*10.*epi.*lpf|no sample|no label"),

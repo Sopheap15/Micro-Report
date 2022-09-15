@@ -93,9 +93,6 @@ data <- data %>%
                          )
                 ) 
 
-# Clean organism name
-data <- data %>% 
-          clean_org(., results)
 
 # Deduplicate data
 data <- data %>% 
@@ -105,6 +102,10 @@ data <- data %>%
 reject_spe <- data %>% 
   select( patient_id, lab_id, collection_date, sample, results, comment, reject_comment) %>%
   distinct(patient_id, lab_id, collection_date, sample, results, .keep_all = T)
+
+# Clean organism name
+data <- data %>% 
+  clean_org(., results)
 
 # Age group
 data <- data %>%
