@@ -571,10 +571,10 @@ df <- bc_cont_deduplicate %>%
 ```{r true pathogens and contatamination}
 # finding patient request by wards
 request <- data %>% 
-  filter(sample == "Blood Culture") %>% 
-  distinct(patient_id, sample,.keep_all = T) %>% 
+  filter(sample == "Blood Culture") %>%
+  distinct(patient_id, sample_source, .keep_all = T) %>% 
   group_by(sample_source) %>% 
-  summarise("Patient request" = n()) 
+  summarise("Patient request" = n())
 
 org <- bc_first_isolate %>% 
   group_by(sample_source) %>% 
@@ -602,17 +602,18 @@ cont <- bc_cont_deduplicate %>%
 # merge number of bottle and contamination 
 bottle_cont <- merge(bottle,cont,all = T) %>% 
   mutate_all( ~replace(., is.na(.), 0)) %>% 
-  mutate("Contamination" = paste0(Contamination," (", round_half_up(Contamination/`Number of bottle`*100,0)," %)"))  
+  mutate("Contamination" = paste0(Contamination," (", round_half_up(Contamination/`Number of bottle`*100,0)," %)"))
 
 
 # merge patient request, true pathogen, number of bottle and contamination by wards
 merge(r_org,bottle_cont,all = T) %>% 
-  rename(`Sample Source` = sample_source, `True pathogens (%)` = `True pathogen`, `Contamination (%)` = Contamination) %>%  
-  arrange(-`Patient request`) %>% 
+  rename(`Sample Source` = sample_source, `True pathogens (%)` = `True pathogen`, `Contamination (%)` = Contamination) %>%
+  arrange(-`Patient request`) %>%
+
   kable(align = c('l','c','c','c','c')) %>% 
   kable_styling(bootstrap_options = c("condensed", "striped", "hover","responsive")) %>% 
   row_spec(0, background = "#9DC055") %>% 
-  add_footnote(label = "* Specimen from private clinc/laboratory", notation = "non")
+  add_footnote(label = "* Specimen from private clinc/laboratory", notation = "non") 
 
 # remove variables
 rm(bottle_cont,cont,bottle,r_org,org,request, cont_org)
