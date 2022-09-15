@@ -7,13 +7,15 @@ library("readxl")
 library("plotly")
 # library("Hmisc")
 
-# Month -----
+# Load functions----
+source("code/Functions.R", knitr::knit_global())
+# Month-----
 month <- data.frame(collection_date_in_month = factor(
   c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
   levels = month.abb
 ))
 
-# Notifiable organisms in MoH ----
+# Notifiable organisms in MoH----
 org_in_hos <- c(
   "Klebsiella pneumoniae",
   "Acinetobacter",
@@ -25,8 +27,7 @@ org_in_hos <- c(
   "Staphylococcus aureus"
 )
 
-
-# Contamination organism ----
+# Contamination organism----
 cont_org_list <- c(
   "Coagulase Negative Staphylococcus",
   "Corynebacterium",
@@ -35,18 +36,11 @@ cont_org_list <- c(
   "Bacillus"
 )
 
-# Load dictionary ----
-dic <-
-  list.files(
-    path = "data",
-    pattern = "^[Dd]ic.*(\\s)?.xls(x)?",
-    full.names = T
-  ) %>%
-  read_excel(
-    sheet = "hospital",
-    col_names = T,
-    trim_ws = T
-  )
+# Load dictionary----
+dic <- list.files(path = "data",
+                   pattern = "^[Dd]ic.*(\\s)?.xls(x)?",
+                   full.names = T) %>%
+        read_excel(sheet = "hospital", col_names = T, trim_ws = T)
 
 dic <- dic %>%
   select(parameter = Parameter, full_name = `Full name`) %>%
@@ -67,115 +61,50 @@ dic <- dic %>%
   ) %>%
   mutate_at(vars(contains("date")), as.Date, format = "%d-%m-%Y")
 
-# Load data ----
-read_file <- function(path) {
-  path %>%
-    read_excel(na = c("", "NA"), trim_ws = T) %>%
-    clean_names() %>%
-    select(-any_of(c(
-      "no", "dob", "test_date", "ampi_peni", "cephalosporins", "fluoroquinolone",
-      "gentamicin_synergy", "novobiocin", "metronidazole", "oral_cephalosporins"
-    )))
-}
 
-# format date
-format_date <- function(d) {
-  if (is.character(d$collection_date) == TRUE) {
-    d %>%
-      mutate_at(
-        vars(contains("date")),
-        ~ as.POSIXct(.,
-          format = "%d-%B-%Y %H:%M",
-          tz = "GMT"
-        )
-      )
-  } else if (is.numeric(d$collection_date) == TRUE) {
-    d %>%
-      mutate_at(
-        vars(contains("date")),
-        ~ as.POSIXct(. * (60 * 60 * 24),
-          origin = "1899-12-30",
-          tz = "GMT"
-        )
-      )
-  } else {
-    "Datetime is in correct format"
-  }
-}
+# Load data----
+data <- list.files(path = "data", pattern = ".*[Bb]ac.*port.*.xls(x)?", full.names = T) %>%
+                   purrr::discard(file_name, .p = ~ stringr::str_detect(., "~")) %>%
+                   map_df(read_file) %>%
+                   mutate(sex = factor(sex)) %>%
+                   format_date() 
 
-data <- list.files(
-  path = "data",
-  pattern = ".*[Bb]ac.*port.*.xls(x)?",
-  full.names = T
-) %>%
-  purrr::discard(file_name, .p = ~ stringr::str_detect(., "~")) %>%
-  map_df(read_file) %>%
-  mutate(sex = factor(sex)) %>%
-  format_date()
-
-data <- data %>% # Filter based on lab name
+# Filter based on lab name
+data <- data %>% 
   filter(lab_name == ifelse(dic$short_name == "All", lab_name, dic$short_name))
 
-data <- data %>% # Filter based on date
+# Filter based on date
+data <- data %>% 
   arrange(collection_date) %>%
   mutate(col_date = as.Date(collection_date)) %>%
-  filter(
-    col_date >= dic$start_date,
-    col_date <= ifelse(
-      dic$end_date >= max(col_date, na.rm = T),
-      max(col_date, na.rm = T),
-      dic$end_date
-    )
-  ) %>%
-  select(-col_date)
+  filter( col_date >= dic$start_date, col_date <= ifelse(dic$end_date >= max(col_date, na.rm = T),
+                                                         max(col_date, na.rm = T),
+                                                         dic$end_date
+    )) %>% select(-col_date)
 
-data <-
-  data %>% # Recode specimen and mutate column collection_date_in month
-  mutate(
-    collection_date_in_month = factor(format(collection_date, "%b"),
-      levels = month.abb
-    ),
-    sample = recode(
-      sample,
-      "Pus aspirate" = "Pus",
-      "Pus swab"     = "Pus",
-      "Swab‐genital" = "Genital swab"
-    )
-  )
+# Recode specimen and mutate column collection_date_in month
+data <- data %>% 
+          mutate(collection_date_in_month = factor(format(collection_date, "%b"),
+                                                    levels = month.abb),
+          sample = recode( sample,
+                           "Pus aspirate" = "Pus",
+                           "Pus swab"     = "Pus",
+                           "Swab‐genital" = "Genital swab"
+                         )
+                ) 
 
+# Clean organism name
+data <- data %>% 
+          clean_org(., results)
 
-data <- data %>% # Deduplicate data
-  distinct(patient_id,
-    lab_id,
-    collection_date,
-    sample,
-    results,
-    .keep_all = T
-  )
+# Deduplicate data
+data <- data %>% 
+  distinct(patient_id, lab_id, collection_date, sample, results, .keep_all = T)
 
-# write_rds(data, compress = "none", "Outputs/clean_data")
-
-# read_rds("Outputs/clean_data")
-
-
-reject_spe <- data %>% # reject specimen
-  select(
-    patient_id,
-    lab_id,
-    collection_date,
-    sample,
-    results,
-    comment,
-    reject_comment
-  ) %>%
-  distinct(patient_id,
-    lab_id,
-    collection_date,
-    sample,
-    results,
-    .keep_all = T
-  )
-
+# Reject specimen
+reject_spe <- data %>% 
+  select( patient_id, lab_id, collection_date, sample, results, comment, reject_comment) %>%
+  distinct(patient_id, lab_id, collection_date, sample, results, .keep_all = T)
 
 # Age group
 data <- data %>%
@@ -191,45 +120,7 @@ data <- data %>%
   relocate(unit, .after = age)
 
 
-# Recode contamination organism
-data <- data %>%
-  filter(!is.na(results)) %>%
-  mutate(
-    results = case_when(
-      str_detect(results, "(?i)Micrococcus") ~ "Micrococcus",
-      str_detect(results, "(?i)Baci(\\w+)(?!(.+)?anth(\\w+))") ~ "Bacillus",
-      str_detect(results, "(?i)Cory(\\w+)(?!(.+)?diph(\\w+))") ~ "Corynebacterium",
-      str_detect(results, "(?i)Ent\\w+ales.*sp") ~ "Enterobacter",
-      str_detect(results, "(?i)Ent\\w+ales.*acae") ~ "Enterobacter cloacae",
-      str_detect(results, "(?i)Ent\\w+ales.*rans") ~ "Pantoea agglomerans",
-      str_detect(results, "(?i)Ent\\w+ales.*genes") ~ "Klebsiella aerogenes",
-      str_detect(results, "(?i)Ent\\w+ales.*genes") ~ "Klebsiella aerogenes",
-      str_detect(results, "(?i)Ent\\w+ales.*zakii") ~ "Cronobacter sakazakii",
-      # str_detect(results, "Streptococcus anginosus group") == TRUE ~ "Streptococcus anginosus",
-      TRUE ~ results
-    )
-  )
-
-# Remove unusual string and convert to standard name
-data <- data %>%
-  mutate(
-    results = str_remove(results, "(\\s)?sp.*$"),
-    # remove sp. or spp.
-    results = str_remove(results, "(\\s)?\\d$"),
-    # remove number
-    results = str_remove(results, "^[Pp]resumptive"),
-    # remove word presumptive
-    results = str_remove(results, "(\\s)?.not albicans$"),
-    # remove word .not albicans
-    results = str_remove(results, "(\\s)?\\(rods\\)$"),
-    # remove word rods
-    results = str_remove(results, "non-[tT]yphi$|non-[tT]yphi/non-[pP]aratyphi$"),
-    results = str_remove(results, ",(\\s)?$"),
-    results = str_trim(results, "both")
-    # mo = as.mo(results, info = F) # convert to standard name
-  )
-
-# Convert antibiotic name to standard
+# Convert antibiotic name to standardize
 data <- data %>%
   rename_with(as.ab, amikacin:vancomycin) %>%
   mutate_if(is.rsi.eligible, as.rsi)
@@ -239,18 +130,16 @@ data <- data %>%
 last_month <- data %>%
   distinct(collection_date_in_month)
 
-# Read and Joint ward data ----
-ward <-
-  list.files(
-    path = "data",
-    pattern = "^[Dd]ic.*.xls(x)?",
-    full.names = T
-  ) %>%
-  read_excel(
-    sheet = "ward",
-    col_names = T,
-    trim_ws = T
-  )
+# Joint ward data----
+ward <- list.files( path = "data",
+                    pattern = "^[Dd]ic.*.xls(x)?",
+                    full.names = T
+        ) %>%
+        read_excel(
+          sheet = "ward",
+          col_names = T,
+          trim_ws = T
+        )
 
 data <-
   left_join(data, ward, by = c("sample_source" = "ward_from_Camlis")) %>%
@@ -294,7 +183,7 @@ bc_first_isolate <- data %>%
   )
 
 bc_cont_deduplicate <-
-  data %>% # need to modify on contamination organism
+  data %>%
   filter(sample == "Blood Culture", results %in% c(cont_org_list)) %>%
   distinct(lab_id, results, .keep_all = T)
 
@@ -333,12 +222,6 @@ comment <- data %>%
     bottle_pos = str_extract(comment, pattern = "\\d\\s?[oO]f\\s?\\d"),
     day_growth = str_extract(comment, "\\d(?=\\s?day)|(?<=[ys]\\s?)\\d")
     
-    # day_growth = str_extract(comment,
-    #   pattern = "day.*?\\d|\\d.?day.?"
-    # ),
-    # day_growth = str_extract(day_growth,
-    #   pattern = "\\d"
-    # )
   )
 
 # Critical results detection

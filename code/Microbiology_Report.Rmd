@@ -139,22 +139,21 @@ p <- dedup_by_pid %>%
   filter(age >= 0, age <= 40150) %>%   # age [0-110y]
   mutate(age = age_groups(age,c(28,365,1825,5475,9125,12775,16425,20075,
                                 23725,27375))) %>%
-  group_by(age, sex) %>% count() %>%
-  ggplot() +
-  geom_bar(aes(age, n, fill = sex, text = paste0(sex,": ", n)), 
-           stat = "identity") +
-  # geom_text(aes(age, n, label = ifelse(n > 15, n, "")), 
-  #           position = position_stack(vjust = 0.5), size =2.5) +
+  group_by(age, sex) %>% count() %>% 
+  ggplot(aes(age, n, fill = sex, text = paste0(sex,": ", n))) +
+  geom_bar(stat = "identity") + 
+  geom_text(aes(label = ifelse(n < 15, "", n)),
+            position = position_stack(vjust = 0.5), size = 2.5) +
   labs(x = "Age", y = "Count") +
   theme_bw() +
-  theme(panel.grid.major.x = element_blank(), legend.title = element_blank()) +
+  theme(panel.grid.major.x = element_blank(), 
+        legend.title = element_blank()) +
   scale_x_discrete(labels = c("<28d","29d-1y","1-4y","5-14y","15-24y","25-34y","35-44y","45-54y","55-64y","65-74y",">75y")) + 
   scale_y_continuous(expand = expansion(mult = c(.01, 0.10)))
 
-
 ggplotly(p, tooltip = "text") %>% 
   layout(legend = list(title = list(text = ""),
-                               x = 1, y = 0.5),
+                       x = 1, y = 0.5),
          font = list(color = "black")) %>% 
   config(displayModeBar = F)
 
@@ -226,10 +225,18 @@ p <- dedup_by_id_stype %>%
   group_by(sample, sample_source) %>% 
   summarise(n = n()) %>%  
   group_by(sample_source) %>% 
-  mutate(total = sum(n)) %>% 
+  mutate(total = sum(n),
+        m = case_when(n >= 400 ~ n * 0.1,
+                      n >= 200 ~ n * 0.2,
+                      n >= 100 ~ n * 0.3,
+                      n >= 50 ~ n * 0.4,
+                      n >= 25 ~ n * 0.7,
+                      n >= 10 ~ n *1.1,
+                      TRUE ~ n * 3)
+         ) %>%
   ggplot(aes(reorder(sample, n), n, fill = sample)) + 
   geom_bar(stat = "identity", aes(text = paste0(sample,": ",n))) + 
-  geom_text(aes(label = n, y = n + (mean(total)*0.1)), size = 2.4) +
+  geom_text(aes(label = n, y = n + m), size = 2.4) +
   coord_flip() +
   facet_wrap(~ reorder(paste0(sample_source,"\n(Total = ", total,")"), -total), ncol = 3) +
   labs(x = "", y = "Count") +
@@ -1209,8 +1216,8 @@ da <- rbind(blank_data, d) %>%
   ggplot() +
   geom_bar(aes(month,n, fill = sample, 
                text = paste0(sample,": ", n)),
-               stat = "identity",width = 0.5) +
-   geom_text(aes(month, total + 0.15 , label = paste0("Total: ", total)), size = 3,
+               stat = "identity", width = 0.5) +
+   geom_text(aes(month, total + ifelse(total < 10, 0.7, 1), label = paste0("Total: ", total)), size = 3,
                 stat = "identity") +
   theme_bw() +
   labs(x = "Month", y = "Bps cases") +
