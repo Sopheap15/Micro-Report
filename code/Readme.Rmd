@@ -24,9 +24,10 @@ This document is developed to guide microbiologists to understand and able to ge
 
 ## 3. Requirements  
 
-R is a free programming language and support for Window, Mac and Linux operating system.
+R is a free programming language and support for Window, Mac and Linux operating system. For computer specification find [here](https://cran.r-project.org/doc/manuals/r-release/R-admin.html).
 
-  
+Note: some of the laboratory comments are in Khmer language with Unicode utf8. It requires to install at least R version 4.2 and window 10 to be able to read unicode. However, it does not need to install for Mac OS.  
+
 Installing R programming and code editor:
 
 a\. Install R commander: [www.r-project.org](https://cran.r-project.org)
