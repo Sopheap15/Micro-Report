@@ -66,7 +66,7 @@ Culture media including blood culture bottles, agar plates and biochemical tubed
 
 #### a. Specimen processing
 
-Clinical laboratories use a manual blood culture system (CMML). Blood culture bottles are registered and staff measure blood culture volume by weighing the bottles. Air venting needles are inserted before incubation for 7 days. After overnight incubation at 35^o^C, laboratory staff inspect bottles daily for signs of organism growth such as turbidity, bubbles or hemolysis. Staff perform blind sub culture and Gram stain at 24h and terminal subculture (or Gram stain) at day 7. If positive, laboratory staff notify clinician immediately.
+Clinical laboratories use a manual blood culture system. Blood culture bottles are registered and staff measure blood culture volume by weighing the bottles. Air venting needles are inserted before incubation for 7 days. After overnight incubation at 35^o^C, laboratory staff inspect bottles daily for signs of organism growth such as turbidity, bubbles or hemolysis. Staff perform blind sub culture and Gram stain at 24h and terminal subculture (or Gram stain) at day 7. If positive, laboratory staff notify clinician immediately.
 
 ::: {#blood_process .figure}
 ![Fig 1. Manual blood culture bottle processing](images/Lab_manual_bl_processing.png){width="80%"}
