@@ -12,6 +12,18 @@ output:
 knitr::opts_chunk$set(echo = TRUE, eval = TRUE)
 ```
 
+```{css, echo =F}
+    h2:hover {
+    font-size: 30px;
+    font-size-adjust: 20px;
+    font-style: italic;
+    font-weight: bold;
+    color: red;
+    transition: all 100ms;
+}
+```
+
+
 ## 1. Introduction
 
 Generate accurately and comprehensively microbiology report are time consuming and intensive effort needed. Unfortunately, microbiology report is crucial and useful for microbiologists, laboratory manager, clinicians, hospital management and other relevant stakeholders for quality improvement.

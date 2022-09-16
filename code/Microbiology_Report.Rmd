@@ -31,6 +31,15 @@ h1.title {
   font-weight: bold;
   text-align: center;
 }
+h2:hover, h3:hover {
+    font-size: 30px;
+    font-size-adjust: 20px;
+    font-style: italic;
+    font-weight: bold;
+    color: red;
+    transition: all 100ms;
+}
+
 .tocify {
   border-color: red;
   border-radius: 8px;
@@ -313,7 +322,7 @@ left_join(reject_com, total_spe) %>%
   select(Specimen = sample, `Total specimen` = total, `Total reject` = n, Reasons = reject) %>% 
   
   kable(align = c("l", 'c', 'c','l'), escape = F) %>% 
-  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive", "bordered")) %>%
+  kable_styling(fixed_thead = T, bootstrap_options = c("condensed","striped", "hover","responsive", "bordered")) %>%
   kableExtra::collapse_rows(1:2, valign = "middle") %>% 
   row_spec(0,background = "#FFFF1E")
 }
@@ -474,7 +483,7 @@ full_join(df, da, by = c("collection_date_in_month", "results", "n")) %>%
   arrange(-Total) %>%
   rename("Pathogen" = results) %>% 
   kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c')) %>% 
-  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>%
+  kable_styling(fixed_thead = T, bootstrap_options = c("condensed","striped", "hover","responsive")) %>%
   row_spec(0,background = "#FFFF1E") %>% 
   column_spec(1,italic = T)
 
@@ -559,7 +568,7 @@ df <- bc_cont_deduplicate %>%
   arrange(-Total) %>%
   rename("Organism" = results) %>% 
   kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c')) %>% 
-  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  kable_styling(fixed_thead = T, bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
   row_spec(0,background = "#E5C4FF") %>% 
   column_spec(1,italic = T)
   
@@ -611,7 +620,7 @@ merge(r_org,bottle_cont,all = T) %>%
   arrange(-`Patient request`) %>%
 
   kable(align = c('l','c','c','c','c')) %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped", "hover","responsive")) %>% 
+  kable_styling(fixed_thead = T, bootstrap_options = c("condensed", "striped", "hover","responsive")) %>% 
   row_spec(0, background = "#9DC055") %>% 
   add_footnote(label = "* Specimen from private clinc/laboratory", notation = "non") 
 
@@ -967,7 +976,6 @@ We analysed data and found [`r critical_result$p`%]{style="color:blue; font-size
 org_notifiable <- c("Burkholderia pseudomallei",
             "Salmonella Typhi", 
             "Salmonella Paratyphi A",
-            "Salmonella",
             "Streptococcus suis",
             "Vibrio cholerae",
             "Bacillus anthracis",
@@ -985,7 +993,7 @@ month_data <- data %>%
 
 org <- data %>% # from data set select only notifiable organism
   select(patient_id,results, collection_date_in_month) %>% 
-  filter(results %in% c(org_notifiable)) %>%
+  filter(results %in% org_notifiable | str_detect(results, "(?i).*salmonella.*")) %>%
   arrange(collection_date_in_month) %>% 
   distinct(patient_id, .keep_all = T) %>% 
   group_by(results, collection_date_in_month) %>% 
@@ -1008,7 +1016,7 @@ list(org, data.frame(results = org_notifiable)) %>%
   arrange(-Total) %>%
   rename("Pathogen" = results) %>% 
   kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c')) %>% 
-  kable_styling(bootstrap_options = c("striped", "hover","responsive")) %>% 
+  kable_styling(fixed_thead = T, bootstrap_options = c("striped", "hover","responsive")) %>% 
   row_spec(0,background = "#FFEB14") %>% 
   column_spec(1,italic = T) %>% 
   add_footnote(c("NB: Salmonella were confirmed by Salmonella O Polyvalent Antisera serology"), notation = "non") 
@@ -1087,7 +1095,7 @@ rbind(ESBL, CRE, MRSA, VRSA) %>%
   rename("Organism" = results,
          "Mechanisms" = MDR) %>% 
   kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c','c','c','c')) %>% 
-  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  kable_styling(fixed_thead = T, bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
   row_spec(0, background = "#C3FDB8") %>% 
   column_spec(1,italic = T)
   
@@ -1130,7 +1138,7 @@ list(org, data.frame(results = org_in_hos)) %>%
   arrange(-Total) %>%
   rename("Organism" = results) %>% 
   kable(align = c("l", 'c', 'c','c','c','c','c','c','c','c','c','c','c','c')) %>% 
-  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  kable_styling(fixed_thead = T, bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
   row_spec(0, background = "#FFEB14") %>% 
   column_spec(1,italic = T)
 
@@ -1321,12 +1329,12 @@ bc_first_isolate %>%
   select(Antibiotic,S,I,R,Total) %>% 
   filter(Total > 0) %>% 
   kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
-  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  kable_styling(fixed_thead = T, bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
   footnote("  S: susceptible, I: intermediate, R: resistant
            Cloxacillin resistance: MRSA", general_title = "") %>% 
   row_spec(0,background = "#FFA500") %>% ##FFE4E1 good color pink
   column_spec(2:5, width = "5em") %>% 
-  column_spec(2,color = "#6698FF",bold = T) %>%
+  column_spec(2, color = "#6698FF",bold = T) %>%
   column_spec(4,color = "#F88017",bold = T)
 }
 #rm(sau)
@@ -1346,7 +1354,7 @@ bc_first_isolate %>%
   mutate(Antibiotic = ab_name(Antibiotic)) %>%
   select(Antibiotic,S,I,R,Total) %>% 
   kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
-  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  kable_styling(fixed_thead = T, bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
   footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
   row_spec(0,background = "#FFA500") %>% 
   column_spec(2:5, width = "5em") %>% 
@@ -1370,7 +1378,7 @@ bc_first_isolate %>%
   mutate(Antibiotic = ab_name(Antibiotic)) %>%
   select(Antibiotic,S,I,R,Total) %>% 
   kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
-  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  kable_styling(fixed_thead = T, bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
   #add_header_above(c("Klebsiella pneumoniae"=5),bold = T,italic = T,background ="#FFA500") %>% 
   footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
   row_spec(0,background = "#FFA500") %>% 
@@ -1395,7 +1403,7 @@ bc_first_isolate %>%
   mutate(Antibiotic = ab_name(Antibiotic)) %>%
   select(Antibiotic,S,I,R,Total) %>% 
   kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
-  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  kable_styling(fixed_thead = T, bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
   #add_header_above(c("Pseudomonas aeruginosa"=5),bold = T,italic = T,background ="#FFA500") %>% 
   footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
   row_spec(0,background = "#FFA500") %>% 
@@ -1420,7 +1428,7 @@ bc_first_isolate %>%
   mutate(Antibiotic = ab_name(Antibiotic)) %>%
   select(Antibiotic,S,I,R,Total) %>% 
   kable(align = c("l",'c', 'c','c','c'), table.attr = "style='width:70%;'") %>% 
-  kable_styling(bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
+  kable_styling(fixed_thead = T, bootstrap_options = c("condensed","striped", "hover","responsive")) %>% 
   #add_header_above(c("Acinetobacter"=5),bold = T,italic = T,background ="#FFA500") %>% 
   footnote("  S: susceptible, I: intermediate, R: resistant", general_title = "") %>% 
   row_spec(0,background = "#FFA500") %>% 
