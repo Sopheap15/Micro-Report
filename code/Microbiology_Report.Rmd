@@ -430,8 +430,7 @@ rm(bc,bc_org,merge_bc_org)
 
 ### 5.2. Bloodstream pathogens isolated
 
-```{r Bloodstream pathogens isolated}
-
+```{r pathogen}
 blood_path <- bc_first_isolate %>%
   mutate(desc = case_when(age < 5110 ~ "Pediatric (<14 years old)",
                               TRUE ~ "Adult (>=14 years old)"),
@@ -440,13 +439,20 @@ blood_path <- bc_first_isolate %>%
   mutate(n = n()) %>% 
   group_by(results) %>% 
   mutate(m = n()) %>%
-  distinct(results, desc, n, m)
+  distinct(results, desc, n, m) 
+
+
+
+```
+
+
+```{r Bloodstream pathogens isolated, fig.height = ifelse(nrow(blood_path)>10, 7, 3)}
 
 p <- blood_path %>%
   ggplot(aes(reorder(results, m), n, fill = results)) +
   geom_bar(stat = "identity", aes(text = paste0(results,": ", n))) + 
   facet_wrap(~ desc) +
-  geom_text(aes(label = n, y = n + (mean(n)*0.30)), size = 3) +
+  geom_text(aes(label = n, y = n + (mean(n)*0.50)), size = 3) +
   labs(x = "",y = "Cases") +
   coord_flip() +
   theme_bw() +
@@ -920,7 +926,7 @@ ggplotly(p, tooltip = "text") %>%
 
 TurnAround Time (TAT) is the expectation time that laboratory report result back to collectors. According to Excel extracted from CamLIS, we can report positive blood culture TAT from specimen collection to Notify Gram stain.
 
-```{r results='asis'}
+```{r TAT, results='asis'}
 
 record <-  TAT %>% filter(is.na(primary_report)) %>% count()
 
@@ -939,9 +945,11 @@ TAT <- TAT %>%
 record <- TAT %>% 
   select(primary_report) %>% count()
 
-TAT %>% 
+TAT <- TAT %>% 
   select(collection_date, primary_report, patient_id) %>% 
-  mutate(tat_h = round_half_up(as.numeric(difftime(primary_report, collection_date, units = "hours")))) %>% 
+  mutate(tat_h = round_half_up(as.numeric(difftime(primary_report, collection_date, units = "hours"))))
+
+TAT %>% 
   plot_ly() %>% 
   add_boxplot(y = ~tat_h, 
             boxpoints = "all",
@@ -961,6 +969,19 @@ TAT %>%
           ) %>% 
   config(displayModeBar = F)
 ```
+
+```{r}
+if (min(TAT$tat_h) <= 0) {
+  cat("Below are incorrect record(s):")
+  TAT %>% 
+    filter(tat_h <= 0) %>% 
+    arrange(tat_h) %>% 
+    kable(align = c("l", 'l', 'l', 'r')) %>%
+    kable_styling(fixed_thead = T, bootstrap_options = c("striped", "hover","responsive"))
+}
+
+```
+
 
 ### 5.8. Blood culture critical result reporting
 
