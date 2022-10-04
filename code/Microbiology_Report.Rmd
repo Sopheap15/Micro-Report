@@ -865,7 +865,7 @@ rm(bottle,bottle_A,bottle_B,missing_bv,miss_bv,b_volume, blank)
 
 Microbiology laboratories always report the day of blood culture positivity in the patient report comment. We present the common pathogens isolated.
 
-```{r results='asis'}
+```{r checking_day_growth, results='asis'}
 
 record <- comment %>% filter(is.na(day_growth)) %>% count()
 
@@ -970,7 +970,7 @@ TAT %>%
   config(displayModeBar = F)
 ```
 
-```{r}
+```{r checking tat_h}
 if (min(TAT$tat_h) <= 0) {
   cat("Below are incorrect record(s):")
   TAT %>% 
@@ -1007,7 +1007,7 @@ org_notifiable <- c("Burkholderia pseudomallei",
             "Neisseria meningitidis",
             "Listeria monocytogenes")
 
-month_data <- data %>% 
+month_data <- data %>% # move to general in fuction?
   distinct(collection_date_in_month) %>% 
   pivot_wider(names_from = collection_date_in_month, 
               values_from = collection_date_in_month)
@@ -1125,7 +1125,7 @@ rm(mdr, MRSA, ESBL, CRE, VRSA)
 
 **Tracking [blood culture]{style="color:red"} isolates by month for possible Healthcare Associated Infection (HAI)**. We filtered blood culture collection date after 48 hours of admission with common bacteria associated with HAI.
 
-```{r comment="#", results='asis'}
+```{r checking_HAI, comment="#", results='asis'}
 
 record <-  HAI %>% filter(is.na(HAI)) %>% count()
 
@@ -1143,18 +1143,18 @@ org <- HAI %>%
   mutate(n = sum(n())) %>% 
   select(-patient_id:-admission_date, -HAI) %>% 
   distinct(.keep_all = T) %>%
-  pivot_wider(names_from = collection_date_in_month, values_from = n)
+  pivot_wider(names_from = collection_date_in_month, values_from = n) 
 
 org <- org %>% # adding month with empty data
   add_column(!!!month_data[setdiff(names(month_data), names(org))]) %>% 
   mutate_if(is.factor, as.character) %>% 
-  mutate_all(., ~ str_replace(., pattern = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec", '0')) %>% 
+  mutate_all(., ~ str_replace(., pattern = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec", '0')) %>%
   select(results, order(factor(names(.), levels = month.abb)))
 
 list(org, data.frame(results = org_in_hos)) %>% 
   reduce(full_join, by = "results") %>% 
   mutate_all(~replace(., is.na(.), 0)) %>% 
-  #mutate_if(is.character, as.numeric) %>% 
+  mutate_if(is.character, as.numeric) %>% 
   mutate(Total = rowSums(across(where(is.numeric)))) %>% 
   arrange(-Total) %>%
   rename("Organism" = results) %>% 

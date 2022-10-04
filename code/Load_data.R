@@ -67,20 +67,22 @@ data <- list.files(path = "data", pattern = ".*[Bb]ac.*port.*.xls(x)?", full.nam
                    purrr::discard(file_name, .p = ~ stringr::str_detect(., "~")) %>%
                    map_df(read_file) %>%
                    mutate(sex = factor(sex)) %>%
-                   format_date() 
+                   format_date()
 
 # Filter based on lab name
 data <- data %>% 
   filter(lab_name == ifelse(dic$short_name == "All", lab_name, dic$short_name))
 
+
 # Filter based on date
 data <- data %>% 
-  arrange(collection_date) %>%
-  mutate(col_date = as.Date(collection_date)) %>%
-  filter( col_date >= dic$start_date, col_date <= ifelse(dic$end_date >= max(col_date, na.rm = T),
-                                                         max(col_date, na.rm = T),
-                                                         dic$end_date
-    )) %>% select(-col_date)
+  mutate(col_date = as.Date(collection_date)) %>% 
+  arrange(col_date) %>% 
+  filter(col_date >= dic$start_date, 
+         col_date <= ifelse(dic$end_date >= max(col_date, na.rm = T),
+                             max(col_date, na.rm = T),
+                             dic$end_date
+    )) %>% select(-col_date) 
 
 # Recode specimen and mutate column collection_date_in month
 data <- data %>% 
