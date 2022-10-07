@@ -212,7 +212,7 @@ p <- sample_by_month %>%
         axis.title = element_text(size = 10),
         panel.grid.major = element_blank()) +
   scale_y_continuous(expand = expansion(mult = c(.01, .10))) +
-  scale_fill_manual(values = specimen_color, limits = force)
+  scale_fill_manual(values = specimen_color)
 
  ggplotly(p, tooltip = "text") %>%  
    config(displayModeBar = F,
@@ -224,7 +224,13 @@ rm(p,sample_by_month)
 For further insight, we stratified by sample sources
 
 ```{r ward count and specimen color}
-ward_count <- ifelse(data %>% distinct(sample_source) %>% count() >= 15, 17, 14)
+ward <- data %>% distinct(sample_source) %>% count()
+ward_count <- case_when(ward <= 7 ~  10,
+                        ward <= 12 ~ 12,
+                        ward <= 17 ~ 14, 
+                        TRUE ~ 20
+                        )
+rm(ward)
 ```
 
 ```{r spe by ward, fig.width=8, fig.height= ward_count}
@@ -259,7 +265,8 @@ p <- dedup_by_id_stype %>%
         strip.text.x = element_text(size = 10,
                                     margin = margin(0.29,0,0.29,0, "cm")
                                     )) + 
-  scale_fill_manual(values = specimen_color, limits = force)
+  scale_fill_manual(values = specimen_color)
+
 
 ggplotly(p, tooltip = "text") %>%
   layout(margin = list(t = 55)) %>% 
@@ -1251,7 +1258,7 @@ da <- rbind(blank_data, d) %>%
                 stat = "identity") +
   theme_bw() +
   labs(x = "Month", y = "Bps cases") +
-  scale_fill_manual(values = specimen_color, limits = force) +
+  scale_fill_manual(values = specimen_color) +
   scale_y_continuous(expand = expansion(mult = c(.01,.10)), 
                      labels = scales::number_format(accuracy = 1))
  
@@ -1318,7 +1325,7 @@ p <- da %>%
   theme_bw() +
   labs(x = "Month", y = "Salmonella cases") +
   #scale_y_continuous(limits = c(0,max(da$total))) +
-  scale_fill_manual(values = specimen_color, limits = force) +
+  scale_fill_manual(values = specimen_color) +
   scale_y_continuous(limits = c(0, 3))
 
 ggplotly(p, tooltip = "text" ) %>% 

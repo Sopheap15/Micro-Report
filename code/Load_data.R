@@ -245,14 +245,7 @@ critical_result <- data %>%
 
 # TAT
 TAT <- data %>%
-  select(lab_name, 
-         patient_id,
-         collection_date,
-         admission_date,
-         sample,
-         results,
-         comment
-  ) %>%
+  select(lab_name, patient_id, collection_date, admission_date, sample, results, comment) %>%
   filter(
     !is.na(results),
     sample == "Blood Culture",
@@ -272,3 +265,4 @@ TAT <- data %>%
   ) %>%
   filter(!is.na(comment_by)) %>%
   mutate(primary_report = lubridate::dmy_hm(paste(date, time), quiet = TRUE))
+
