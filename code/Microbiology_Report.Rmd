@@ -1236,15 +1236,21 @@ if (bps > 0) {
 d <- data %>% 
   filter(results == "Burkholderia pseudomallei") %>%
   group_by(collection_date_in_month, sample) %>% 
-  summarise(n = n(),.groups = "keep") 
+  summarise(n = n(),.groups = "keep")
+
+
+blank_data <- blank_data %>% 
+  filter(!collection_date_in_month %in% d$collection_date_in_month) %>% 
+  filter(collection_date_in_month %in% last_month$collection_date_in_month)
 
 da <- rbind(blank_data, d) %>% 
    mutate(collection_date_in_month = factor(collection_date_in_month,
                                             levels = month.abb)) %>% 
   group_by(collection_date_in_month,sample) %>%
   summarise(n = sum(n),.groups = "keep") %>%  
-  filter(collection_date_in_month %in% last_month$collection_date_in_month,
-         sample != "") %>% 
+  mutate(sample = ifelse(sample == "", "Blood Culture", sample)) %>% 
+  # filter(collection_date_in_month %in% last_month$collection_date_in_month,
+  #        sample != "") %>% 
   group_by(collection_date_in_month) %>% 
   mutate(total = sum(n))
 
@@ -1308,13 +1314,17 @@ d <- data %>%
   group_by(collection_date_in_month, sample) %>% 
   summarise(n = n(),.groups = "keep")
 
-da <- rbind(blank_data, d) %>% 
+blank_data <- blank_data %>% 
+  filter(!collection_date_in_month %in% d$collection_date_in_month) %>% 
+  filter(collection_date_in_month %in% last_month$collection_date_in_month)
+
+da <- rbind(blank_data, d) %>%
    mutate(collection_date_in_month = factor(collection_date_in_month,
                                             levels = month.abb)) %>% 
   group_by(collection_date_in_month,sample) %>%
-  summarise(n = sum(n),.groups = "keep") %>%  
-  filter(collection_date_in_month %in% last_month$collection_date_in_month,
-         sample != "")
+  summarise(n = sum(n),.groups = "keep") %>% 
+  mutate(sample = ifelse(sample == "", "Blood Culture", sample)) 
+
 
 p <- da %>%
   rename(month = collection_date_in_month) %>% 
@@ -1325,11 +1335,15 @@ p <- da %>%
   theme_bw() +
   labs(x = "Month", y = "Salmonella cases") +
   #scale_y_continuous(limits = c(0,max(da$total))) +
-  scale_fill_manual(values = specimen_color) +
+  scale_fill_manual(na.translate = F,
+                    breaks = "Blood Culture",
+                    values = specimen_color) +
   scale_y_continuous(limits = c(0, 3))
 
+
 ggplotly(p, tooltip = "text" ) %>% 
-  layout(legend = list(title = list(text = ""),
+  layout(
+         legend = list(title = list(text = ""),
                                x = 1, y = 0.5   
                                   )) %>% 
   config(displayModeBar = F)
