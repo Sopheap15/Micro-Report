@@ -36,6 +36,19 @@ cont_org_list <- c(
   "Bacillus"
 )
 
+# set up specimen color
+specimen_color <- c("Blood Culture" = "#F7766D", # blood red
+                    "Pus" = "#D1B087", # pus yellow-gray
+                    "Urine" = "#F7A62C", 
+                    "Body Fluid" = "#C3CDF6",
+                    "CSF" = "#FFCCCC",
+                    "Sputum" = "#B4AC54",
+                    "Stool" = "#BBBBBB",
+                    "Genital swab" = "#F76ACD",
+                    "Throat swab" = "#BE3737",
+                    "Tissue" = "#DC376F"
+)
+
 # Load dictionary----
 dic <- list.files(path = "data",
                    pattern = "^[Dd]ic.*(\\s)?.xls(x)?",
