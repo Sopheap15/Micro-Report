@@ -175,19 +175,6 @@ rm(p)
 
 A patient can have more than one microbiology specimen collected. We assume one specimen has one unique sample identification number. After removing duplicates, we have: <span class="style">`r dedup_by_id_stype %>% count() %>% mutate_if(is.numeric,format,big.mark=",")` sample(s)</span>. We stratify data by month and sample type
 
-```{r specimen color, eval=FALSE}
-specimen_color <- c("Blood Culture" = "#F7766D", # blood red
-                     "Pus" = "#D1B087", # pus yellow-gray
-                     "Urine" = "#F7A62C", 
-                     "Body Fluid" = "#C3CDF6",
-                     "CSF" = "#FFCCCC",
-                     "Sputum" = "#B4AC54",
-                     "Stool" = "#BBBBBB",
-                     "Genital swab" = "#F76ACD",
-                     "Throat swab" = "#BE3737",
-                     "Tissue" = "#DC376F"
-                               )
-```
 
 ```{r microbiology sample by month, fig.height=8}
 # fig.height=8
